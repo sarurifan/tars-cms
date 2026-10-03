@@ -1,0 +1,70 @@
+# ---- 通用 ----
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.iml
+
+# ---- 日志/临时 ----
+*.log
+*.tlog
+tmp/
+temp/
+
+# ---- 构建产物 ----
+target/
+build/
+dist/
+bin/
+*.tgz
+*.tar.gz
+*.zip
+*.war
+*.ear
+*.jar
+
+# ---- Node ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.nuxt/
+.output/
+
+# ---- Go ----
+vendor/
+*.exe
+*.test
+*.out
+coverage.*
+
+# ---- Java ----
+*.class
+*.class
+.mvn/
+mvnw*
+!mvnw
+!mvnw.cmd
+*.versionsBackup
+
+# ---- 环境/密钥 ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+secrets/
+
+# ---- TARS 专属 ----
+*.tars.conf
+tarsnode-data/
+app_log/
+
+# ---- 项目本地 ----
+/local/
+*.local.*
