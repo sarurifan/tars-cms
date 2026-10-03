@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -550,19 +554,134 @@ func descendantIDs(tid int64, rootID int64) []int64 {
 	return out
 }
 
-// upload 通用上传（本地存储实现，OSS 分支预留）
+// upload 通用上传（本地存储，OSS 分支预留）
+// data 为 base64 内容（不带 data: 前缀）
+// 返回 {id, name, url, path, size, mime, kind, driver}
 func (imp *articleServantImp) upload(tenantId int32, filename string, data string, kind string) (string, error) {
 	if filename == "" || data == "" {
 		return toJSONFail("filename and data required"), nil
 	}
-	// 注：data 为 base64 编码内容；driver 由配置决定（local/oss），默认 local。
-	// 这里返回占位结构，实际落盘/OSS 在 deploy 阶段接入（见 docs）。
+
+	// 1. 解码 base64
+	// 兼容带 data:image/png;base64, 前缀
+	if idx := strings.Index(data, "base64,"); idx >= 0 {
+		data = data[idx+len("base64,"):]
+	}
+	raw, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return toJSONFail("invalid base64: " + err.Error()), nil
+	}
+	if len(raw) == 0 {
+		return toJSONFail("empty content"), nil
+	}
+
+	// 2. 生成存储路径 uploadDir/YYYY/MM/<时间戳>_<安全文件名>
+	uploadDir := envOr("CMS_UPLOAD_DIR", "/data/tars/cms/uploads")
+	safeName := sanitizeFilename(filename)
+	relDir := filepath.Join(time.Now().Format("2006"), time.Now().Format("01"))
+	absDir := filepath.Join(uploadDir, relDir)
+	if err := os.MkdirAll(absDir, 0755); err != nil {
+		return toJSONFail("mkdir failed: " + err.Error()), nil
+	}
+	stored := fmt.Sprintf("%d_%s", time.Now().UnixNano(), safeName)
+	absPath := filepath.Join(absDir, stored)
+	if err := os.WriteFile(absPath, raw, 0644); err != nil {
+		return toJSONFail("write file failed: " + err.Error()), nil
+	}
+
+	// 3. 相对路径（存库）+ URL（对外访问）
+	relPath := filepath.ToSlash(filepath.Join(relDir, stored))
+	url := envOr("CMS_UPLOAD_URL_BASE", "/uploads") + "/" + relPath
+
+	// 4. MIME 推断（按扩展名）
+	mime := detectMime(safeName)
+
+	// 5. 写 cms_media 记录
+	m := Media{
+		TenantID: int64(tenantId),
+		Name:     filename,
+		Path:     relPath,
+		URL:      url,
+		Size:     int64(len(raw)),
+		Mime:     mime,
+		Driver:   "local",
+	}
+	if err := DB().Create(&m).Error; err != nil {
+		return toJSONFail("db insert failed: " + err.Error()), nil
+	}
+
 	return toJSONOK(map[string]interface{}{
-		"name":   filename,
+		"id":     m.ID,
+		"name":   m.Name,
+		"url":    m.URL,
+		"path":   m.Path,
+		"size":   m.Size,
+		"mime":   m.Mime,
 		"kind":   kind,
-		"driver": "local",
-		"msg":    "storage backend not wired yet",
+		"driver": m.Driver,
 	}), nil
+}
+
+// sanitizeFilename 清洗文件名，只保留安全字符
+func sanitizeFilename(name string) string {
+	name = filepath.Base(name)
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '.' || r == '-' || r == '_':
+			b.WriteRune(r)
+		case r >= 0x4e00 && r <= 0x9fff: // 中文
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	out := b.String()
+	if out == "" || out == "." || out == ".." {
+		out = "file.bin"
+	}
+	return out
+}
+
+// detectMime 按扩展名推断 MIME
+func detectMime(name string) string {
+	ext := strings.ToLower(filepath.Ext(name))
+	switch ext {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".svg":
+		return "image/svg+xml"
+	case ".ico":
+		return "image/x-icon"
+	case ".bmp":
+		return "image/bmp"
+	case ".pdf":
+		return "application/pdf"
+	case ".txt":
+		return "text/plain"
+	case ".md":
+		return "text/markdown"
+	case ".zip":
+		return "application/zip"
+	case ".json":
+		return "application/json"
+	case ".html", ".htm":
+		return "text/html"
+	case ".css":
+		return "text/css"
+	case ".js":
+		return "application/javascript"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 var _ = fmt.Sprintf

@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/TarsCloud/TarsGo/tars"
@@ -444,6 +446,34 @@ func main() {
 		writeJSON(w, result)
 	})
 
+	// ---------- 上传接口（multipart → base64 → TARS） ----------
+
+	// 图片上传: POST /api/admin/upload/image  (multipart: file)
+	mux.HandleFunc("/api/admin/upload/image", func(w http.ResponseWriter, r *http.Request) {
+		handleUpload(w, r, articleProxy, "image")
+	})
+
+	// 文件上传: POST /api/admin/upload/file   (multipart: file)
+	mux.HandleFunc("/api/admin/upload/file", func(w http.ResponseWriter, r *http.Request) {
+		handleUpload(w, r, articleProxy, "file")
+	})
+
+	// ---------- 上传文件静态托管（/uploads/ 经网关可访问） ----------
+	uploadDir := os.Getenv("CMS_UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "/data/tars/cms/uploads"
+	}
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+
+	// ---------- 前端静态站点（h5/admin 构建产物，可选挂载） ----------
+	// CMS_H5_DIR / CMS_ADMIN_DIR 设置后，/ 与 /admin/ 提供静态资源
+	if h5Dir := os.Getenv("CMS_H5_DIR"); h5Dir != "" {
+		mux.Handle("/", spaFileServer(h5Dir))
+	}
+	if adminDir := os.Getenv("CMS_ADMIN_DIR"); adminDir != "" {
+		mux.Handle("/admin/", http.StripPrefix("/admin/", spaFileServer(adminDir)))
+	}
+
 	// CORS 中间件
 	handler := corsMiddleware(mux)
 
@@ -482,6 +512,71 @@ func corsMiddleware(next http.Handler) http.Handler {
 func writeJSON(w http.ResponseWriter, data string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	io.WriteString(w, data)
+}
+
+// handleUpload multipart 上传 → base64 → 调 cms TARS
+func handleUpload(w http.ResponseWriter, r *http.Request, articleProxy *cms.ArticleObj, kind string) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, "POST required")
+		return
+	}
+	// 解析 multipart（限制 20MB）
+	r.Body = http.MaxBytesReader(w, r.Body, 20<<20)
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		writeJSONError(w, "parse multipart failed: "+err.Error())
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSONError(w, "file field required: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	raw, err := io.ReadAll(file)
+	if err != nil {
+		writeJSONError(w, "read file failed: "+err.Error())
+		return
+	}
+	if len(raw) == 0 {
+		writeJSONError(w, "empty file")
+		return
+	}
+
+	tenantId := int32(parseInt(r.URL.Query().Get("tenantId"), 1))
+	b64 := base64.StdEncoding.EncodeToString(raw)
+
+	var result string
+	if kind == "image" {
+		result, err = articleProxy.UploadImage(tenantId, header.Filename, b64)
+	} else {
+		result, err = articleProxy.UploadFile(tenantId, header.Filename, b64)
+	}
+	if err != nil {
+		writeJSONError(w, err.Error())
+		return
+	}
+	writeJSON(w, result)
+}
+
+// spaFileServer 提供 SPA 单页应用静态服务（history 路由回退 index.html）
+func spaFileServer(dir string) http.Handler {
+	fs := http.FileServer(http.Dir(dir))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(dir, r.URL.Path)
+		// 文件存在则直接服务
+		if st, err := os.Stat(path); err == nil && !st.IsDir() {
+			fs.ServeHTTP(w, r)
+			return
+		}
+		// 否则回退 index.html（SPA 路由）
+		index := filepath.Join(dir, "index.html")
+		if _, err := os.Stat(index); err == nil {
+			http.ServeFile(w, r, index)
+			return
+		}
+		http.NotFound(w, r)
+	})
 }
 
 func writeJSONError(w http.ResponseWriter, msg string) {

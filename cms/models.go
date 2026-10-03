@@ -176,10 +176,10 @@ type CategoryNode struct {
 
 // HomeData 首页聚合数据
 type HomeData struct {
-	Banners      []ArticleListItem `json:"banners"`
-	TopArticles  []ArticleListItem `json:"top_articles"`
-	FocusArticles []ArticleListItem `json:"focus_articles"`
-	Latest       []ArticleListItem `json:"latest"`
+	Banners       []ArticleListItem `json:"banners"`
+	TopArticles   []ArticleListItem `json:"topArticles"`
+	FocusArticles []ArticleListItem `json:"focusArticles"`
+	Latest        []ArticleListItem `json:"latest"`
 	Categories   []*CategoryNode   `json:"categories"`
 	Config       map[string]string `json:"config"`
 }
