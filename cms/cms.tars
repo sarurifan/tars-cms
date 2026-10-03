@@ -1,0 +1,60 @@
+module cms
+{
+    // 文章
+    interface ArticleObj
+    {
+        // 首页聚合
+        string getHome(int tenantId);
+        
+        // 分类
+        string getCategories(int tenantId);
+        string getCategoryTree(int tenantId);
+        
+        // 文章列表（分页）
+        string getArticleList(int tenantId, int categoryId, string keyword, int page, int size);
+        
+        // 文章详情
+        string getArticleDetail(int tenantId, int id);
+        
+        // 后台管理
+        string getAdminArticleList(int tenantId, int categoryId, int status, int page, int size);
+        string createArticle(int tenantId, string title, string summary, string content, 
+                            int categoryId, string cover, string articleType, 
+                            bool isBanner, bool isTop, bool isFocus, int sort, int authorId, string source);
+        string updateArticle(int tenantId, int id, string title, string summary, string content,
+                            int categoryId, string cover, string articleType,
+                            bool isBanner, bool isTop, bool isFocus, int sort, int authorId, string source);
+        string deleteArticle(int tenantId, int id);
+        
+        // 分类管理
+        string getAdminCategoryList(int tenantId);
+        string createCategory(int tenantId, int pid, string name, string slug, int sort);
+        string updateCategory(int tenantId, int id, int pid, string name, string slug, int sort);
+        string deleteCategory(int tenantId, int id);
+        
+        // 站点配置
+        string getSiteConfig(int tenantId);
+        string updateSiteConfig(int tenantId, string configJson);
+        
+        // 媒体
+        string getMediaList(int tenantId, int page, int size);
+        string uploadImage(int tenantId, string filename, string data);
+        string uploadFile(int tenantId, string filename, string data);
+        
+        // 成员
+        string getMemberList(int tenantId);
+        string createMember(int tenantId, string name, string avatar, string title, string bio, string role, int sort);
+        string updateMember(int tenantId, int id, string name, string avatar, string title, string bio, string role, int sort);
+        string deleteMember(int tenantId, int id);
+    };
+    
+    // 认证
+    interface AuthObj
+    {
+        string login(int tenantId, string username, string password);
+        string register(int tenantId, string username, string password, string email);
+        string getUserInfo(int tenantId, string token);
+        string refreshToken(int tenantId, string token);
+        string logout(int tenantId, string token);
+    };
+};
