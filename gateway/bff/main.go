@@ -474,8 +474,9 @@ func main() {
 		mux.Handle("/admin/", http.StripPrefix("/admin/", spaFileServer(adminDir)))
 	}
 
-	// CORS 中间件
-	handler := corsMiddleware(mux)
+	// CORS 中间件 + 后台鉴权
+	// 注意：/api/admin/ 全部接口必须登录后才可访问（否则未授权可读写全部内容）
+	handler := corsMiddleware(authMiddleware(authProxy, mux))
 
 	// 启动
 	port := os.Getenv("PORT")
@@ -490,6 +491,44 @@ func main() {
 }
 
 // ---------- 工具函数 ----------
+
+// authMiddleware 后台接口鉴权
+// /api/admin/ 下的所有路由必须携带有效 token，否则返回 401。
+// token 校验走 TARS AuthObj.GetUserInfo（code==0 视为有效）。
+func authMiddleware(authProxy *cms.AuthObj, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 仅保护后台接口；OPTIONS 预检放行
+		if !strings.HasPrefix(r.URL.Path, "/api/admin/") || r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		token := extractBearer(r)
+		if token == "" {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusUnauthorized)
+			io.WriteString(w, `{"code":-1,"msg":"unauthorized: token required","data":null}`)
+			return
+		}
+
+		tenantId := int32(parseInt(r.URL.Query().Get("tenantId"), 1))
+		result, err := authProxy.GetUserInfo(tenantId, token)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusUnauthorized)
+			io.WriteString(w, `{"code":-1,"msg":"unauthorized","data":null}`)
+			return
+		}
+		// GetUserInfo 返回 {"code":0,...} 表示有效
+		if !strings.Contains(result, `"code":0`) {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusUnauthorized)
+			io.WriteString(w, `{"code":-1,"msg":"unauthorized: invalid or expired token","data":null}`)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
