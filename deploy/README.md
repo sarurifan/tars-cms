@@ -4,6 +4,20 @@
 
 ---
 
+## 〇、一键部署（推荐）
+
+```bash
+cd /root/tars-cms
+
+bash deploy/deploy.sh              # 顺序跑 n01~n09（幂等，可重跑）
+bash deploy/deploy.sh --full       # 强制全量重装
+bash deploy/deploy.sh --skip n02   # 跳过 n02 编译（复用已有包）
+```
+
+特性：**幂等**（重复执行安全）、**断点续跑**（中断后重跑从失败处继续）、**失败即停**、`--full` 强制重装、`--skip <n0X>` 跳步。
+
+
+
 ## 一、前置条件
 
 | 依赖 | 说明 |
@@ -123,6 +137,28 @@ crontab -l | grep -v n08-fix-pid | crontab -   # 撤销
 ### 4. 网关路由必须写**容器 IP**
 
 `tarsnode` 托管的服务监听在容器网络内，不映射到宿主机。网关与 tarsnode 同网络，因此 `f_proxy_pass` 必须写 `http://172.25.0.5:<port>`，写宿主机 IP 会得到 HTTP 000。
+
+**`n05`/`n07` 已自动探测**（`docker inspect tars-node`），可用 `CMS_NODE_IP` 覆盖：
+
+```bash
+# 探测逻辑
+NODE_IP="${CMS_NODE_IP:-$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tars-node)}"
+BFF="$NODE_IP:3103"
+CMSWEB="$NODE_IP:13103"
+```
+
+**典型故障**：BFF 从宿主机迁移为 tarsnode 托管后，路由表里仍是旧宿主机 IP → `/api/*` 全部 HTTP 000，但 `/admin/`（指 CmsWeb）正常。此时改 `t_http_router.f_proxy_pass` 为容器 IP 并重启 `Base.GatewayServer` 即可。
+
+**路由归属**（`cms` 站点 `f_station_id=3`）：
+
+| f_path_rule | 目标 | 说明 |
+| --- | --- | --- |
+| `/` | `http://172.25.0.5:13103` | CmsWeb → h5 首页 |
+| `/admin/` | `http://172.25.0.5:13103` | CmsWeb → 后台 |
+| `/uploads/` | `http://172.25.0.5:13103` | CmsWeb → 上传文件 |
+| `/api/` | `http://172.25.0.5:3103` | BFF → TARS RPC |
+
+> ⚠️ `/` 不要指向 BFF（BFF 只管 API，`GET /` 返回 404）。
 
 改完 `db_base.t_http_router` 后需重启 `Base.GatewayServer` 生效。
 

@@ -14,8 +14,13 @@
 set -euo pipefail
 
 BASE="http://127.0.0.1:15535/plugins/base/gateway/api"
-GW_HTTP="http://127.0.0.1:8200"
-BFF="192.168.1.95:3103"
+GW_HTTP="http://192.168.1.95:8200"
+# BFF 由 tarsnode 托管，跑在 tars-node 容器网络内（非宿主机）。
+# 网关与 tarsnode 同网络，因此 proxy_pass 必须写容器 IP，写宿主机 IP 会 HTTP 000。
+# 自动探测，可用 CMS_NODE_IP 覆盖。
+NODE_IP="${CMS_NODE_IP:-$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tars-node 2>/dev/null)}"
+[ -n "$NODE_IP" ] || { echo "❌ 无法探测 tars-node IP"; exit 1; }
+BFF="$NODE_IP:3103"
 
 post() { curl -s -X POST "$1" -H "Content-Type: application/json" -d "$2"; }
 get()  { curl -s "$1"; }
