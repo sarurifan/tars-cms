@@ -64,6 +64,9 @@ bash deploy/n08-fix-pid.sh            # 安装 cron，每分钟同步真实 PID
 # ── 路由自检（防服务迁移后残留旧 IP）──
 bash deploy/n10-fix-routes.sh         # 诊断 + 幂等修复网关路由
 bash deploy/n10-fix-routes.sh --check # 只诊断不改动
+bash deploy/n11-test.sh               # 全栈测试套件（9 层）
+bash deploy/n12-health-monitor.sh --install  # 安装健康巡检 cron（每 5 分钟）
+bash deploy/n13-logrotate.sh --install       # 安装日志轮转 cron（每小时）
 ```
 
 ---
@@ -82,6 +85,9 @@ bash deploy/n10-fix-routes.sh --check # 只诊断不改动
 | `n08-fix-pid.sh` | **安装 cron**：每分钟校正 not_tars 服务 PID | crontab |
 | `n09-deploy-bff.sh` | 编译 `gateway/bff/` → 发布 BFF | `cms.CmsBff` 3103 |
 | `n10-fix-routes.sh` | **路由自检**：诊断 + 幂等修复网关路由 | `t_http_router` |
+| `n11-test.sh` | **测试套件**：9 层 30+ 断言（单元/端到端/契约/XSS/鉴权/上传/CORS） | 无（只读 + 临时测试数据） |
+| `n12-health-monitor.sh` | **健康巡检**：每 5 分钟，连续 3 次异常才告警；`--install`/`--uninstall` 管 cron | 4 HTTP + 3 服务状态 |
+| `n13-logrotate.sh` | **日志轮转**：>50M 归档并截断（gzip + 保留 7 份），`--install` 每小时 cron | 容器 tars-node 内 `app_log` |
 
 ---
 

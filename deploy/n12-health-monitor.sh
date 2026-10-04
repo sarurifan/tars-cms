@@ -26,7 +26,10 @@
 set -uo pipefail
 
 GW="${CMS_GATEWAY:-http://192.168.1.95:8200}"
-DBPASS="${CMS_DB_PASS:-tars@root.2026}"
+# 加载部署环境变量（DBPASS 不硬编码，从 env.sh 读；兜底空密码用于仅健康检查场景）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+[ -f "$_ENV_SH" ] && . "$_ENV_SH"
+DBPASS="${CMS_DB_PASS:-}"
 ALERT_LOG="/root/tars-cms/backup/health-alerts.log"
 FAIL_COUNT_FILE="/tmp/cms-health-fail-count"
 HEALTH_LOG="/root/tars-cms/backup/health-check.log"

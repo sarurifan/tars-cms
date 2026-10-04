@@ -595,6 +595,16 @@ func corsMiddleware(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// P1-1: 安全响应头（所有响应统一）
+		w.Header().Set("X-Content-Type-Options", "nosniff")   // 禁 MIME 嗅探（防 txt 被当 html 执行）
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")       // 防点击劫持（禁第三方 iframe）
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("X-XSS-Protection", "0")               // 现代浏览器建议禁用旧过滤器
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; img-src 'self' data: blob:; "+
+				"style-src 'self' 'unsafe-inline'; script-src 'self'; "+
+				"object-src 'none'; base-uri 'self'; frame-ancestors 'self'")
+
 		origin := r.Header.Get("Origin")
 		if origin != "" && allowed[origin] {
 			w.Header().Set("Access-Control-Allow-Origin", origin)

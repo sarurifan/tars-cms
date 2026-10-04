@@ -44,8 +44,30 @@ func main() {
 		fmt.Fprintf(w, `{"code":0,"msg":"ok","service":"cms.CmsWeb","time":%q}`, time.Now().Format(time.RFC3339))
 	})
 
-	// 上传文件
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+	// 上传文件（P1-2：禁用目录列表，目录请求返回 403）
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// 目录请求 → 403（禁枚举）
+			cleanPath := filepath.Clean("/" + r.URL.Path)
+			absPath := filepath.Join(uploadDir, strings.TrimPrefix(cleanPath, "/"))
+			if st, err := os.Stat(absPath); err == nil && st.IsDir() {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+			// 文件请求 → 正常提供，禁止路径穿越
+			if strings.Contains(r.URL.Path, "..") {
+				http.Error(w, "invalid path", http.StatusBadRequest)
+				return
+			}
+			// 只允许文件，禁脚本类型（双保险，与上传白名单一致）
+			ext := strings.ToLower(filepath.Ext(r.URL.Path))
+			switch ext {
+			case ".html", ".htm", ".svg", ".php", ".js", ".jsp", ".asp", ".sh", ".exe", ".css", ".xml":
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+			http.FileServer(http.Dir(uploadDir)).ServeHTTP(w, r)
+		})))
 
 	// admin 后台（/admin/ 前缀）
 	mux.Handle("/admin/", http.StripPrefix("/admin/", spaHandler(adminDir, "/admin")))
