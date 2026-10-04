@@ -1,3 +1,185 @@
-# deploy
+# deploy —— 一键部署与运维脚本
 
-> 模块说明待补全。
+本目录是 tars-cms 的**全自动化部署套件**。每个步骤是一个独立脚本，按序号执行即可从零搭起整套服务；每步都可单独重跑，失败可回退。
+
+---
+
+## 一、前置条件
+
+| 依赖 | 说明 |
+| --- | --- |
+| TARS 平台 | 三个容器：`tars-mysql` / `tars-framework`（含 TarsWeb `:3000`）/ `tars-node` |
+| Docker | 脚本通过 `docker exec` 操作容器，需宿主机有 docker 权限 |
+| Go 1.21+ | 编译 `cms/`、`web/`、`gateway/bff/` 三个 Go 服务 |
+| Node.js 18+ | 编译 `h5/`、`admin/` 前端 |
+
+**本环境实测参数**（脚本内已硬编码，换环境需改）：
+
+```
+tars-mysql      root 密码 tars@root.2026   （容器 IP 172.25.0.2）
+tars-node       节点 IP 172.25.0.5
+tars-framework  Web 平台 127.0.0.1:3000
+```
+
+---
+
+## 二、执行顺序
+
+```bash
+cd /root/tars-cms
+
+# ── 基础（业务服务 + 数据）──
+bash deploy/n01-init-db.sh            # 建库建表 + 初始数据
+bash deploy/n02-package.sh            # 编译打包 cms.CmsServer
+bash deploy/n03-deploy.sh             # 上传发布到 tarsnode
+bash deploy/n04-verify.sh             # 验证业务服务（RPC 连通性）
+
+# ── 网关 ──
+bash deploy/n05-config-gateway.sh     # 注册 station/upstream/httprouter
+
+# ── 静态站（h5 + admin + 上传）──
+bash deploy/n06-deploy-web.sh         # 编译打包发布 cms.CmsWeb（端口 13103）
+bash deploy/n07-config-web-gateway.sh # 网关路由：/ /admin/ /uploads/ → CmsWeb
+
+# ── BFF（HTTP ⇄ TARS 协议转换）──
+bash deploy/n09-deploy-bff.sh         # 编译打包发布 cms.CmsBff（端口 3103）
+
+# ── 平台状态修正（必做，否则 not_tars 服务显示 inactive）──
+bash deploy/n08-fix-pid.sh            # 安装 cron，每分钟同步真实 PID
+```
+
+---
+
+## 三、脚本职责一览
+
+| 脚本 | 作用 | 端口/产物 |
+| --- | --- | --- |
+| `n01-init-db.sh` | 建 `tars_cms` 库、建表、插入示例文章与分类 | MySQL 13307 |
+| `n02-package.sh` | `CGO_ENABLED=0` 静态编译 → 打扁平 tgz | `CmsServer.tgz` |
+| `n03-deploy.sh` | 注册 `t_server_conf`/`t_adapter_conf` → 上传 → 发布 | `cms.CmsServer` |
+| `n04-verify.sh` | RPC 冒烟：调 `ArticleObj`/`AuthObj` 验证 | — |
+| `n05-config-gateway.sh` | 网关注册 `cms` station + 上游 + 路由 | 网关 8200 |
+| `n06-deploy-web.sh` | 编译 `web/` + 打包前端 dist → 发布静态站 | `cms.CmsWeb` 13103 |
+| `n07-config-web-gateway.sh` | 网关路由 `/`、`/admin/`、`/uploads/` | 网关 8200 |
+| `n08-fix-pid.sh` | **安装 cron**：每分钟校正 not_tars 服务 PID | crontab |
+| `n09-deploy-bff.sh` | 编译 `gateway/bff/` → 发布 BFF | `cms.CmsBff` 3103 |
+
+---
+
+## 四、关键设计说明
+
+### 1. 发布包必须扁平
+
+`tarsnode` 把包解压到服务的 `bin/` 目录，包内**不能再套一层目录**：
+
+```
+CmsWeb.tgz
+└── CmsWeb/
+    ├── CmsWeb          ← 入口（包装脚本，必须与 server_name 同名）
+    ├── CmsWeb_bin      ← 真实二进制
+    ├── tars_start.sh
+    ├── tars_stop.sh
+    └── data/{h5,admin} ← 静态资源
+# 解压后: <server>/bin/{CmsWeb, CmsWeb_bin, data/...}
+```
+
+套成 `bin/CmsWeb` 会解压出 `bin/bin/CmsWeb` → 启动失败。
+
+### 2. not_tars 服务的 PID 自愈（方案 A）
+
+`tarsnode` 启动 `not_tars` 服务时：
+1. 用硬编码模板重写 `bin/tars_start.sh`，末尾强制 `&` 后台启动；
+2. fork 该脚本并记录**脚本的 PID**，但脚本 2ms 内退出 → 记录的是死 PID；
+3. 之后仅靠 `kill -0 <死PID>` 探测 → 平台永远 `inactive`；且每约 60s 覆盖一次 DB。
+
+因此 `n06`/`n09` 生成的**入口包装脚本**内置了守护：
+
+```sh
+MY_PID=$$                       # exec 后 PID 不变，这就是最终服务 PID
+setsid sh -c '
+    MY_PID='"$MY_PID"'
+    while kill -0 $MY_PID 2>/dev/null; do
+        mysql ... "UPDATE t_server_conf SET process_id=$MY_PID, present_state=\"active\" ..."
+        sleep 1
+    done
+' >/dev/null 2>&1 < /dev/null &
+exec "$DIR/<Server>_bin" "$@"
+```
+
+- **`setsid` 必须**：否则守护成为服务子进程，进程树畸形且随发布失效；
+- 实测效果：仅方案 A → 95% 采样点 active；配合方案 B（`n08` cron）→ **100%**；
+- CPU 开销约 0.1%。
+
+### 3. 方案 B：cron 兜底（n08）
+
+每分钟从端口反查真实 PID 写回 DB，防止任何后续漂移：
+
+```bash
+bash deploy/n08-fix-pid.sh            # 安装 + 立即同步一次
+crontab -l | grep n08                 # 查看
+crontab -l | grep -v n08-fix-pid | crontab -   # 撤销
+```
+
+### 4. 网关路由必须写**容器 IP**
+
+`tarsnode` 托管的服务监听在容器网络内，不映射到宿主机。网关与 tarsnode 同网络，因此 `f_proxy_pass` 必须写 `http://172.25.0.5:<port>`，写宿主机 IP 会得到 HTTP 000。
+
+改完 `db_base.t_http_router` 后需重启 `Base.GatewayServer` 生效。
+
+### 5. 上传发布包的三个坑
+
+```bash
+# ① 包必须先 docker cp 进 tars-framework（容器内 curl 读不到宿主机路径）
+docker cp "$PKG" tars-framework:/tmp/$SERVER.tgz
+
+# ② 必须在 tars-framework 容器内 curl 127.0.0.1:3000（免登录白名单）
+#    宿主机 curl 会报「您还没有登录」
+docker exec tars-framework curl -s -X POST \
+    "http://127.0.0.1:3000/pages/server/api/upload_patch_package?ticket=$TOKEN" \
+    -F "application=$APP" -F "module_name=$SERVER" \
+    -F "suse=@/tmp/$SERVER.tgz;filename=$SERVER.tgz"
+
+# ③ add_task 的 command 是 patch_tars（不是 patch），patch_id 传数字
+```
+
+### 6. `TOKEN` 的来源
+
+各脚本从 `/docker/tars/scripts/c03-deploy-chisha.sh` 提取 Web 平台 ticket：
+
+```bash
+TOKEN=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2)
+```
+
+**换环境注意**：该文件属于另一个项目（chisha），若不存在需自备 ticket，或改为登录 `TarsWeb` 获取。这是当前唯一的跨项目依赖。
+
+---
+
+## 五、验证清单
+
+部署完成后逐项确认：
+
+```bash
+# 1. 平台状态（三服务应全部 active）
+docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -e \
+  "SELECT server_name, present_state, process_id FROM t_server_conf WHERE application='cms';"
+
+# 2. 全链路
+GW=http://192.168.1.95:8200
+curl -s -o /dev/null -w "h5:    %{http_code}\n" $GW/
+curl -s -o /dev/null -w "admin: %{http_code}\n" $GW/admin/
+curl -s -o /dev/null -w "api:   %{http_code}\n" "$GW/api/cms/home?tenantId=1"
+
+# 3. 上传链路
+curl -s -X POST "$GW/api/admin/upload/image?tenantId=1" -F "file=@/tmp/test.png"
+```
+
+---
+
+## 六、已知限制
+
+| 限制 | 说明 |
+| --- | --- |
+| `not_tars` 状态需守护 | tarsnode 每约 60s 覆盖 DB，靠 A+B 方案压制；采样仍可能偶见 inactive 瞬间，**不影响业务** |
+| 网关不读 `present_state` | 平台状态纯属展示层，路由转发只依赖端口连通性 |
+| `tars_start.sh` 不可定制 | 每次 activate 被 tarsnode 模板重写，改它无效（需改包装脚本） |
+| 跨项目 TOKEN 依赖 | 见上文 §4.6 |
