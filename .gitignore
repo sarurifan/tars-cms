@@ -69,3 +69,4 @@ app_log/
 /local/
 *.local.*
 screenshots/
+backup/
