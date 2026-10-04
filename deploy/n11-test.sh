@@ -190,7 +190,54 @@ else
   fail "未授权访问后台接口竟然成功（安全漏洞！）"
 fi
 
-section "第七层：错误处理（非法输入应优雅降级）"
+section "第七层：上传安全（白名单，防存储型 XSS）"
+if [[ -n "$tok" ]]; then
+  tmpdir=$(mktemp -d)
+  echo '<script>alert(1)</script>' > "$tmpdir/e.html"
+  printf '<svg xmlns="http://www.w3.org/2000/svg"><script>x</script></svg>' > "$tmpdir/e.svg"
+  echo '<?php echo 1;?>' > "$tmpdir/e.php"
+  echo 'alert(1)' > "$tmpdir/e.js"
+  printf 'text' > "$tmpdir/ok.txt"
+  for f in e.html e.svg e.php e.js; do
+    r=$(curl -s --max-time 15 -H "Host: $HOST_HDR" -H "Authorization: Bearer $tok" \
+      -F "file=@$tmpdir/$f" "$GATEWAY/api/admin/upload/file?tenantId=$TENANT")
+    c=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('code'))" 2>/dev/null)
+    if [[ "$c" == "-1" ]]; then pass "拒绝危险类型 .${f##*.}（防 XSS）"; else fail "危险类型 .${f##*.} 被放行！"; fi
+  done
+  r=$(curl -s --max-time 15 -H "Host: $HOST_HDR" -H "Authorization: Bearer $tok" \
+    -F "file=@$tmpdir/ok.txt" "$GATEWAY/api/admin/upload/file?tenantId=$TENANT")
+  c=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('code'))" 2>/dev/null)
+  [[ "$c" == "0" ]] && pass "放行合法类型 .txt" || fail "合法 .txt 被误拒"
+  newmid=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('id',''))" 2>/dev/null)
+  rm -rf "$tmpdir"
+
+  # 删除媒体应同时删除物理文件
+  if [[ -n "$newmid" ]]; then
+    dr=$(curl -s --max-time 10 -X POST -H "Host: $HOST_HDR" -H "Authorization: Bearer $tok" \
+      -H "Content-Type: application/json" -d "{\"tenantId\":$TENANT,\"id\":$newmid}" \
+      "$GATEWAY/api/admin/media/delete")
+    dc=$(echo "$dr" | python3 -c "import json,sys; print(json.load(sys.stdin).get('code'))" 2>/dev/null)
+    [[ "$dc" == "0" ]] && pass "删除媒体记录成功" || fail "删除媒体失败"
+    # 验证物理文件已删（通过 URL 访问应 404）
+    u=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('url',''))" 2>/dev/null)
+    if [[ -n "$u" ]]; then
+      hc=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 -H "Host: $HOST_HDR" "$GATEWAY$u")
+      [[ "$hc" == "404" ]] && pass "物理文件已随之删除（$u → 404）" || fail "物理文件仍可访问（$u → $hc）"
+    fi
+  fi
+else
+  fail "无 token，跳过上传安全测试"
+fi
+
+section "第八层：CORS 白名单（不反射任意 Origin）"
+# 白名单内 Origin 应有 ACAO
+acao=$(curl -s -I --max-time 8 -H "Origin: $GATEWAY" "http://172.25.0.5:3103/api/cms/home?tenantId=$TENANT" | grep -i "^access-control-allow-origin" | tr -d '\r')
+[[ -n "$acao" ]] && pass "白名单 Origin 返回 ACAO" || fail "白名单 Origin 无 ACAO"
+# 恶意 Origin 不应有 ACAO
+bad=$(curl -s -I --max-time 8 -H "Origin: https://evil.example.com" "http://172.25.0.5:3103/api/cms/home?tenantId=$TENANT" | grep -ci "^access-control-allow-origin")
+[[ "$bad" == "0" ]] && pass "恶意 Origin 未被反射（无 ACAO）" || fail "恶意 Origin 被反射（CORS 漏洞）"
+
+section "第九层：错误处理（非法输入应优雅降级）"
 # 不存在的文章
 r=$(curl -s --max-time 8 -H "Host: $HOST_HDR" "$GATEWAY/api/cms/articles/999999?tenantId=$TENANT")
 rc=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('code'))" 2>/dev/null || echo "?")

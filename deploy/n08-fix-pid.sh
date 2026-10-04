@@ -19,6 +19,10 @@
 # ================================================================
 set -e
 
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+
 SCRIPT_PATH="/root/tars-cms/deploy/n08-fix-pid.sh"
 CRON_LINE="* * * * * /bin/bash $SCRIPT_PATH --sync >> /tmp/n08-cms-pid.log 2>&1"
 
@@ -36,7 +40,7 @@ sync_service() {
         return
     fi
 
-    CUR=$(docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -sN -e \
+    CUR=$(docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e \
         "SELECT CONCAT(process_id,'|',present_state) FROM t_server_conf
          WHERE application='$app' AND server_name='$server';" 2>/dev/null)
 
@@ -48,7 +52,7 @@ sync_service() {
         return
     fi
 
-    docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -e \
+    docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -e \
         "UPDATE t_server_conf SET process_id='$REAL_PID', present_state='active'
          WHERE application='$app' AND server_name='$server';" 2>/dev/null
 
@@ -76,7 +80,7 @@ echo "  ✅ cron 已安装"
 echo ""
 echo "=== 3. 当前状态 ==="
 crontab -l | grep n08-fix-pid | sed 's/^/  /'
-docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -e \
+docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -e \
     "SELECT CONCAT('  ', application, '.', server_name, '  ', server_type, '  ', present_state, '  PID=', process_id)
      FROM t_server_conf WHERE application='cms';" 2>/dev/null | grep -v Warning
 

@@ -22,11 +22,15 @@
 # ================================================================
 set -euo pipefail
 
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+
 CHECK_ONLY=0
 [[ "${1:-}" == "--check" ]] && CHECK_ONLY=1
 
 STATION_ID="${CMS_STATION_ID:-3}"
-MYSQL_PASS="${CMS_DB_PASS:-tars@root.2026}"
+MYSQL_PASS="${CMS_DB_PASS}"
 NODE_IP="${CMS_NODE_IP:-$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tars-node 2>/dev/null)}"
 [ -n "$NODE_IP" ] || { echo "❌ 无法探测 tars-node IP（可用 CMS_NODE_IP 覆盖）"; exit 1; }
 

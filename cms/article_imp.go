@@ -423,6 +423,34 @@ func (imp *articleServantImp) UploadImage(ctx context.Context, tenantId int32, f
 	return imp.upload(tenantId, filename, data, "image")
 }
 
+// DeleteMedia 删除媒体记录 + 物理文件（P1-3：原先只删 DB 记录，文件仍可访问）
+func (imp *articleServantImp) DeleteMedia(ctx context.Context, tenantId int32, id int32) (string, error) {
+	tid := int64(tenantId)
+
+	var m Media
+	if err := DB().Where("id = ? AND tenant_id = ?", id, tid).First(&m).Error; err != nil {
+		return toJSONFail("media not found"), nil
+	}
+
+	// 1. 删物理文件（在删 DB 记录前，失败不影响记录删除）
+	uploadDir := envOr("CMS_UPLOAD_DIR", "/data/tars/cms/uploads")
+	absPath := filepath.Join(uploadDir, filepath.FromSlash(m.Path))
+	// 防目录穿越：确保删除目标在 uploadDir 内
+	if strings.HasPrefix(absPath, uploadDir) {
+		if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+			// 文件删除失败不阻断：继续删记录，避免脏数据积累
+			fmt.Printf("[media] delete file failed: %s err=%v\n", absPath, err)
+		}
+	}
+
+	// 2. 删 DB 记录
+	if err := DB().Delete(&Media{}, "id = ? AND tenant_id = ?", id, tid).Error; err != nil {
+		return toJSONFail("delete failed: " + err.Error()), nil
+	}
+
+	return toJSONOK(map[string]interface{}{"id": id, "ok": true}), nil
+}
+
 func (imp *articleServantImp) UploadFile(ctx context.Context, tenantId int32, filename string, data string) (string, error) {
 	return imp.upload(tenantId, filename, data, "file")
 }
@@ -562,6 +590,13 @@ func (imp *articleServantImp) upload(tenantId int32, filename string, data strin
 		return toJSONFail("filename and data required"), nil
 	}
 
+	// 0. 扩展名白名单（防存储型 XSS / 任意文件上传）
+	// 图片与普通文件走不同白名单；危险类型（html/svg/php/js/...）一律拒绝。
+	// SVG 内可嵌 <script>，故不入图片白名单。
+	if !isAllowedUploadExt(filepath.Ext(filename), kind) {
+		return toJSONFail("file type not allowed: " + filepath.Ext(filename)), nil
+	}
+
 	// 1. 解码 base64
 	// 兼容带 data:image/png;base64, 前缀
 	if idx := strings.Index(data, "base64,"); idx >= 0 {
@@ -623,6 +658,7 @@ func (imp *articleServantImp) upload(tenantId int32, filename string, data strin
 }
 
 // sanitizeFilename 清洗文件名，只保留安全字符
+// （注意：这是防御层，扩展名白名单见 isAllowedUploadExt）
 func sanitizeFilename(name string) string {
 	name = filepath.Base(name)
 	var b strings.Builder
@@ -682,6 +718,32 @@ func detectMime(name string) string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+// isAllowedUploadExt 扩展名白名单（P0-1：防任意文件上传 / 存储型 XSS）
+// kind = "image" 时只放行图片扩展名；kind = "file" 放行文档类。
+// svg/html/htm/php/js/jsp/... 任何能携带脚本的类型一律拒绝。
+func isAllowedUploadExt(ext, kind string) bool {
+	ext = strings.ToLower(ext)
+	if ext == "" {
+		return false
+	}
+	imageExt := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true,
+		".gif": true, ".webp": true, ".bmp": true,
+		".ico": true,
+	}
+	fileExt := map[string]bool{
+		".pdf": true, ".txt": true, ".md": true,
+		".zip": true, ".gz": true, ".7z": true, ".rar": true,
+		".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+		".ppt": true, ".pptx": true, ".csv": true, ".json": true,
+	}
+	if kind == "image" {
+		return imageExt[ext]
+	}
+	// file 类型：图片也允许（附件里可以放图），但危险类型永不放行
+	return imageExt[ext] || fileExt[ext]
 }
 
 var _ = fmt.Sprintf

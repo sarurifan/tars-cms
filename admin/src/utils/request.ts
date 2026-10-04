@@ -41,6 +41,13 @@ service.interceptors.response.use(
     return res
   },
   (error) => {
+    // HTTP 401（后端返回 HTTP 401 + body code:-1）：token 过期 → 清 token 跳登录
+    if (error.response && error.response.status === 401) {
+      clearToken()
+      ElMessage.error('登录已过期，请重新登录')
+      window.location.href = '/login'
+      return Promise.reject(error)
+    }
     ElMessage.error(error.message || '网络错误')
     return Promise.reject(error)
   }

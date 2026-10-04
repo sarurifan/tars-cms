@@ -38,6 +38,7 @@ module cms
         
         // 媒体
         string getMediaList(int tenantId, int page, int size);
+        string deleteMedia(int tenantId, int id);
         string uploadImage(int tenantId, string filename, string data);
         string uploadFile(int tenantId, string filename, string data);
         

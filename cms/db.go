@@ -35,7 +35,12 @@ func InitDB() (*gorm.DB, error) {
 		host := envOr("CMS_DB_HOST", "172.25.0.2")
 		port := envOr("CMS_DB_PORT", "3306")
 		user := envOr("CMS_DB_USER", "root")
-		pass := envOr("CMS_DB_PASS", "tars@root.2026")
+		// 密码不设默认值：必须由环境变量提供，避免凭据进仓库
+		pass := os.Getenv("CMS_DB_PASS")
+		if pass == "" {
+			dbErr = fmt.Errorf("环境变量 CMS_DB_PASS 未设置（数据库密码不可硬编码）")
+			return
+		}
 		name := envOr("CMS_DB_NAME", "tars_cms")
 
 		dsn := fmt.Sprintf(

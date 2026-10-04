@@ -2,10 +2,14 @@
 # n01-init-db.sh — 初始化 tars_cms 数据库（幂等，可重复执行）
 set -euo pipefail
 
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+
 MYSQL_HOST="${CMS_DB_HOST:-172.25.0.2}"
 MYSQL_PORT="${CMS_DB_PORT:-3306}"
 MYSQL_USER="${CMS_DB_USER:-root}"
-MYSQL_PASS="${CMS_DB_PASS:-tars@root.2026}"
+MYSQL_PASS="${CMS_DB_PASS}"
 SQL_FILE="$(cd "$(dirname "$0")" && pwd)/sql/init.sql"
 
 echo "=== n01-init-db.sh ==="

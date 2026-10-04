@@ -446,6 +446,28 @@ func main() {
 		writeJSON(w, result)
 	})
 
+	// 媒体删除: POST /api/admin/media/delete  body: {tenantId, id}
+	// 删 DB 记录 + 物理文件（P1-3）
+	mux.HandleFunc("/api/admin/media/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSONError(w, "POST required")
+			return
+		}
+		body := parseJSONBody(r)
+		tenantId := int32(parseInt(body["tenantId"], 1))
+		id := int32(parseInt(body["id"], 0))
+		if id <= 0 {
+			writeJSONError(w, "id required")
+			return
+		}
+		result, err := articleProxy.DeleteMedia(tenantId, id)
+		if err != nil {
+			writeJSONError(w, err.Error())
+			return
+		}
+		writeJSON(w, result)
+	})
+
 	// ---------- 上传接口（multipart → base64 → TARS） ----------
 
 	// 图片上传: POST /api/admin/upload/image  (multipart: file)
@@ -531,13 +553,25 @@ func authMiddleware(authProxy *cms.AuthObj, next http.Handler) http.Handler {
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
+	// 允许的来源白名单（P1-2：禁止反射任意 Origin + 携带凭据）
+	// 可用 CORS_ALLOWED_ORIGINS 覆盖，逗号分隔
+	allowed := map[string]bool{}
+	for _, o := range strings.Split(envOr(
+		"CORS_ALLOWED_ORIGINS",
+		"http://192.168.1.95:8200,http://127.0.0.1:8200,http://localhost:8200",
+	), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			allowed[o] = true
+		}
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin == "" {
-			origin = "*"
+		if origin != "" && allowed[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Vary", "Origin")
 		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
@@ -546,6 +580,14 @@ func corsMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// envOr 读取环境变量，空则用默认值（BFF 侧副本，避免跨包依赖）
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 
 func writeJSON(w http.ResponseWriter, data string) {

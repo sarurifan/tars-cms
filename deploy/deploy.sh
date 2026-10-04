@@ -15,6 +15,10 @@
 # ================================================================
 set -euo pipefail
 
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"   # 绝对路径（供 --help 用）
 cd "$(dirname "$0")"          # deploy/
 ROOT="$(cd .. && pwd)"        # 仓库根目录
@@ -122,7 +126,7 @@ for p in "/" "/admin/" "/api/cms/home?tenantId=1"; do
     err "GET $p → $code (预期 200)"
   fi
 done
-docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -sN -e \
+docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e \
   "SELECT server_name, present_state, process_id FROM t_server_conf WHERE application='cms';" 2>/dev/null | \
   while IFS=$'\t' read -r svc state pid; do
     printf "  %-14s %-8s PID=%s\n" "$svc" "$state" "$pid"

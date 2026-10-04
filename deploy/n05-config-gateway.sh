@@ -13,6 +13,10 @@
 # ================================================================
 set -euo pipefail
 
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+
 BASE="http://127.0.0.1:15535/plugins/base/gateway/api"
 GW_HTTP="http://192.168.1.95:8200"
 # BFF 由 tarsnode 托管，跑在 tars-node 容器网络内（非宿主机）。
@@ -55,7 +59,7 @@ echo ""
 echo ""
 echo "=== [5/5] 重启 GatewayServer 加载新配置 ==="
 TOKEN=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2)
-GW_SID=$(docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -sN -e \
+GW_SID=$(docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e \
     "SELECT id FROM t_server_conf WHERE application='Base' AND server_name='GatewayServer';" 2>/dev/null)
 docker exec tars-framework curl -s -X POST \
     "http://127.0.0.1:3000/pages/server/api/add_task?ticket=$TOKEN" \

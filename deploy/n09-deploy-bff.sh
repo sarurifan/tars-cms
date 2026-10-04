@@ -24,6 +24,10 @@
 # ================================================================
 set -euo pipefail
 
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+
 APP="cms"
 SERVER="CmsBff"
 PORT="3103"
@@ -34,7 +38,7 @@ TOKEN=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2
 API="http://127.0.0.1:3000/pages/server/api"
 
 mysql_q() {
-    docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -sN -e "$1" 2>/dev/null
+    docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e "$1" 2>/dev/null
 }
 
 echo "================================================"
@@ -77,7 +81,8 @@ if command -v setsid >/dev/null 2>&1 && command -v mysql >/dev/null 2>&1; then
     setsid sh -c '
         MY_PID='"$MY_PID"'
         while kill -0 $MY_PID 2>/dev/null; do
-            mysql -uroot -ptars@root.2026 -h172.25.0.2 db_tars -e \
+            . /etc/profile.d/cms-env.sh 2>/dev/null
+            mysql -uroot -p"$CMS_DB_PASS" -h172.25.0.2 db_tars -e \
                 "UPDATE t_server_conf SET process_id=$MY_PID, present_state=\"active\" WHERE application=\"cms\" AND server_name=\"CmsBff\";" >/dev/null 2>&1
             sleep 1
         done

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
 # ================================================================
 # n04-verify.sh — tars-cms 全链路验证（前端 → 网关 → BFF → TARS → MySQL）
 # ================================================================
@@ -19,7 +22,7 @@ PASS=0
 FAIL=0
 
 mysql_q() {
-    docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -sN -e "$1" 2>/dev/null
+    docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e "$1" 2>/dev/null
 }
 
 assert_contains() {

@@ -70,3 +70,4 @@ app_log/
 *.local.*
 screenshots/
 backup/
+deploy/env.sh

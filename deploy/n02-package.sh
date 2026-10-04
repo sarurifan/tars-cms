@@ -38,6 +38,13 @@ cat > "$PKG_DIR/tars_start.sh" <<'EOF'
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/app/tars/tarsnode/data/cms.CmsServer/bin/:/usr/local/app/tars/tarsnode/data/lib/
 trap 'exit' SIGTERM SIGINT
 
+# 数据库密码从环境注入（不硬编码进仓库）
+# 优先级: 已有的 CMS_DB_PASS > /etc/profile.d/cms-env.sh > 部署机环境变量
+if [ -z "$CMS_DB_PASS" ] && [ -f /etc/profile.d/cms-env.sh ]; then
+    . /etc/profile.d/cms-env.sh
+fi
+export CMS_DB_PASS
+
 # 铁律1: 带 & 后台启动（tarsnode 等 stdout EOF，不带 & 会超 activating-timeout=10s 反复重启）
 # 铁律2: 输出重定向到独立日志（继承 stdout 会写满 pipe buffer → HTTP Empty reply）
 # 铁律3: 文件必须存在于包内

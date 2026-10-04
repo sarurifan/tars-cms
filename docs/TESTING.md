@@ -21,7 +21,9 @@ bash deploy/n11-test.sh --e2e
 | 第四层 数据契约 | 响应字段存在性与类型（尤其 `author` 是对象非字符串） | `python3 json` | 网关 |
 | 第五层 XSS 防护 | 写入 `<script>` → 读回验证已净化 | 登录+创建+读取 | 网关+DB |
 | 第六层 鉴权边界 | 未授权访问 `/api/admin/*` 应 401 | `curl` | 网关+BFF |
-| 第七层 错误处理 | 非法输入（page=abc / size=99999 / 不存在 id）应优雅降级 | `curl` | 网关 |
+| 第七层 上传安全 | 危险扩展名(html/svg/php/js)应拒绝；删除媒体应同时删物理文件 | `curl -F` | 网关+DB |
+| 第八层 CORS 白名单 | 白名单 Origin 有 ACAO；恶意 Origin 不被反射 | `curl -I` | 网关+BFF |
+| 第九层 错误处理 | 非法输入（page=abc / size=99999 / 不存在 id）应优雅降级 | `curl` | 网关 |
 
 退出码非 0 即失败（`exit $((FAIL>0))`），可直接接 CI。
 
@@ -69,3 +71,16 @@ cd gateway/bff && go test -v ./...
 | 单元测试不覆盖 RPC 层 | TARS 服务的 RPC 方法只在端到端层验证 |
 | 前端无组件测试 | h5/admin 未引入测试框架，仅通过端到端 + 截图验证 |
 | XSS 测试有副作用 | 第五层会创建再删除一篇测试文章 |
+
+
+---
+
+## 六、安全修复记录（方案 A 安全冲刺）
+
+| 编号 | 问题 | 修复 | 验证方式 |
+| --- | --- | --- | --- |
+| P0-1 | 上传无类型限制 → 存储型 XSS（实测 html 可执行） | `isAllowedUploadExt` 扩展名白名单，html/svg/php/js 等一律拒绝 | 第七层测试 + 6 个单元用例 |
+| P0-2 | 前端 401 契约不匹配（HTTP 401 落到 error 拦截器） | h5/admin 的 error 拦截器补 `status===401` 分支 | 手工验证 token 过期跳登录 |
+| P0-3 | 密码硬编码在 10 个 sh + 1 处 Go | 新增 `deploy/env.sh`（gitignored）+ `env.sh.example`；Go 侧强制读环境变量 | 全部脚本语法检查 + 部署验证 |
+| P1-2 | CORS 反射任意 Origin + 允许凭据 | 白名单 `CORS_ALLOWED_ORIGINS`，非白名单不返回 ACAO | 第八层测试 |
+| P1-3 | 删除媒体只删 DB 记录，物理文件仍可访问 | 新增 `deleteMedia` 接口（IDL + 实现 + BFF 路由），同步 `os.Remove` | 第七层测试 |

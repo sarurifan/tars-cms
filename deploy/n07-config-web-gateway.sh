@@ -14,6 +14,10 @@
 # ================================================================
 set -euo pipefail
 
+# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+
 BASE="http://127.0.0.1:15535/plugins/base/gateway/api"
 GW_HTTP="http://192.168.1.95:8200"
 # BFF/CmsWeb 均由 tarsnode 托管，跑在 tars-node 容器网络内（非宿主机）。
@@ -78,7 +82,7 @@ echo ""
 echo "[4/4] 重启 GatewayServer"
 TOKEN=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2)
 GW_SID=$(mysql_q2="SELECT id FROM t_server_conf WHERE application='Base' AND server_name='GatewayServer';"
-docker exec tars-mysql mysql -uroot -ptars@root.2026 db_tars -sN -e "$mysql_q2" 2>/dev/null)
+docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e "$mysql_q2" 2>/dev/null)
 curl -s --max-time 30 -X POST \
     "http://127.0.0.1:3000/pages/server/api/add_task?ticket=$TOKEN" \
     -H "Content-Type: application/json" \

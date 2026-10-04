@@ -34,6 +34,12 @@ service.interceptors.response.use(
     return res
   },
   (error) => {
+    // HTTP 401（后端返回 HTTP 401 + body code:-1）：token 过期 → 清 token 跳登录
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('h5_token')
+      localStorage.removeItem('h5_user')
+      window.location.href = '/login'
+    }
     return Promise.reject(error)
   }
 )
