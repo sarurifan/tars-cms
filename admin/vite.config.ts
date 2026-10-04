@@ -25,6 +25,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    chunkSizeWarningLimit: 1500
+    chunkSizeWarningLimit: 1500,
+    // P2-6: 拆分 vendor chunk（vue/element-plus 单独缓存，业务更新不重下 vendor）
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          'vendor-element': ['element-plus', '@element-plus/icons-vue']
+        }
+      }
+    }
   }
 })

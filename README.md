@@ -30,10 +30,10 @@
 | 特点 | 说明 |
 | --- | --- |
 | **真实完整** | 不是 Hello World，而是一个能用的 CMS：内容、分类、媒体、站点配置、用户与权限 |
-| **多语言混合** | 每个服务用最合适的语言实现 —— Go 写认证、Java 写业务、C++ 写高性能压测、Node.js 写网关 |
+| **多语言混合** | 每个服务用最合适的语言实现 —— Go 写业务、C++ 承载静态站、Node.js 写网关 |
 | **分层清晰** | 前端 → 网关 → 业务服务，每层职责单一，边界明确，随便拆掉一层都能看懂 |
 | **操作可逆** | 每个部署步骤都是一个独立脚本，配套回滚，改坏了随时能退回去 |
-| **压测完备** | 自带 TarsBenchmark，可以亲手验证服务的 QPS、延迟与成功率 |
+| **压测完备** | 压测框架规划中，`Benchmark/` 目录预留 —— 可验证 QPS、延迟与成功率 |
 | **自己介绍自己** | 前端站点的内容就是本项目的文档与教程，由 CMS 自己管理 |
 
 ---
@@ -94,13 +94,17 @@
 
 ```
 tars-cms/
-├── cms/          内容管理服务 —— 文章、分类、媒体、站点配置
-├── auth/         认证服务 —— OIDC / JWT / 会话 / 权限
+├── cms/          内容管理服务（主力）—— 文章、分类、媒体、站点配置、认证
 ├── gateway/      网关 —— TarsGateway 路由配置 + BFF 聚合层
-├── base/         公共基础 —— IDL 定义、共享库、模板配置
-├── Benchmark/    压测 —— TarsBenchmark 安装与压测用例
-├── deploy/       部署脚本 —— 一个操作一个脚本，全部可逆
-└── docs/         项目文档 —— 架构说明与踩坑记录
+├── h5/           内容站前端（Vue3 + Vite）
+├── admin/        管理后台前端（Vue3 + Element Plus）
+├── deploy/       部署脚本 —— 一键编排 + 单步可逆 + 测试套件
+├── docs/         项目文档 —— 架构说明、测试、踩坑记录
+├── web/          (预留) 备用入口模块
+├── base/         规划中 —— IDL 定义、共享模板（暂未实现）
+├── auth/         规划中 —— 独立认证服务（当前认证实现在 cms/ 内）
+├── mp/           规划中 —— 小程序端（暂未实现）
+└── Benchmark/    规划中 —— 压测用例（暂未实现）
 ```
 
 ---
@@ -110,13 +114,13 @@ tars-cms/
 | TARS 概念 | 在本项目中的落点 |
 | --- | --- |
 | **App / Server / Servant** 三层模型 | 每个服务的命名与注册方式 |
-| **IDL 与代码生成** | `base/` 下的 `.tars` 接口定义文件 |
-| **多语言服务** | `tars_go`（auth）、`tars_java`（cms）、`tars_cpp`（Benchmark） |
+| **IDL 与代码生成** | `cms/cms.tars` 接口定义 + tars2go 生成桩 |
+| **多语言服务** | `tars_go`（cms 主力服务）、`tars_cpp`（CmsWeb 静态站）、网关为 Node.js |
 | **模板配置** | 服务启动参数的集中管理 |
-| **心跳与存活探测** | 认证服务如何让平台稳定识别为 `active` |
+| **心跳与存活探测** | 服务如何让平台稳定识别为 `active` |
 | **网关与路由** | `gateway/` 的 HTTP → TARS 转发规则 |
 | **发布与扩容** | `deploy/` 的打包、上传、发布、回滚脚本 |
-| **压测与容量评估** | `Benchmark/` 实测 QPS 与延迟分位 |
+| **压测与容量评估** | `Benchmark/`（规划中）实测 QPS 与延迟分位 |
 
 ---
 
@@ -153,13 +157,27 @@ docker run -d --name tars-node --net=tars --ip=172.25.0.5 \
 ### 2. 部署本项目服务
 
 ```bash
-cd deploy
-./n01-deploy-auth.sh      # 认证服务
-./n02-deploy-cms.sh       # CMS 服务
-./n03-config-gateway.sh   # 网关路由
+cd /root/tars-cms
+bash deploy/deploy.sh             # 一键编排：n01~n11（幂等，可重跑）
+# 或单步执行（每步独立、可逆）
+bash deploy/n01-init-db.sh        # 初始化数据库（建表 + 种子数据，幂等）
+bash deploy/n02-package.sh        # 编译打包 CmsServer
+bash deploy/n03-deploy.sh         # 部署 CmsServer 到 tarsnode
+bash deploy/n04-verify.sh         # 验证业务服务 RPC 连通（17 项）
+bash deploy/n05-config-gateway.sh # 注册网关 station/upstream/router
+bash deploy/n06-deploy-web.sh     # 编译部署 CmsWeb（静态站 + 上传）
+bash deploy/n07-config-web-gateway.sh # 网关路由 / /admin/ /uploads/
+bash deploy/n08-fix-pid.sh        # 安装 cron 修正 not_tars PID
+bash deploy/n09-deploy-bff.sh     # 编译部署 CmsBff（BFF）
+bash deploy/n10-fix-routes.sh     # 路由自检（防服务迁移残留旧 IP）
+bash deploy/n11-test.sh           # 全栈测试套件（9 层，30+ 断言）
+
+# 部署前先配置凭据（不硬编码在脚本里）
+cp deploy/env.sh.example deploy/env.sh
+vi deploy/env.sh                  # 填 CMS_DB_PASS
 ```
 
-每个脚本都可独立运行，并附带对应的回滚说明。
+每个脚本都可独立运行、幂等；部署与回滚说明见 `deploy/README.md`。
 
 ---
 
@@ -168,11 +186,14 @@ cd deploy
 | 模块 | 状态 |
 | --- | --- |
 | TARS 框架部署（含管理平台） | ✅ 已验证 |
-| `auth` 认证服务（Go / OIDC+JWT） | ✅ 已验证运行 |
-| `gateway` 网关路由 | ✅ 已验证运行 |
-| `Benchmark` 压测 | ✅ 已验证（实测 QPS 与延迟分位） |
-| `cms` 内容服务 | 🚧 建设中 |
-| 前端站点 | 🚧 建设中 |
+| `cms` 内容服务（含认证、媒体） | ✅ 已验证运行 |
+| `gateway` 网关路由 + BFF | ✅ 已验证运行 |
+| 前端 `h5` / `admin` | ✅ 已验证运行 |
+| `deploy` 一键编排 + 测试套件 | ✅ 已验证 |
+| `auth` 独立认证服务 | 📋 规划中（当前认证在 cms/ 内） |
+| `base` 公共基础 | 📋 规划中 |
+| `mp` 小程序端 | 📋 规划中 |
+| `Benchmark` 压测 | 📋 规划中 |
 
 > 项目仍在持续建设中，欢迎关注与参与。
 
@@ -326,13 +347,13 @@ tars-cms/
 | TARS Concept | Where It Lives in This Project |
 | --- | --- |
 | **App / Server / Servant** model | Naming and registration of each service |
-| **IDL and code generation** | `.tars` interface files under `base/` |
-| **Polyglot services** | `tars_go` (auth), `tars_java` (cms), `tars_cpp` (Benchmark) |
+| **IDL and code generation** | `cms/cms.tars` interface definitions + tars2go stubs |
+| **Polyglot services** | `tars_go` (cms core), `tars_cpp` (CmsWeb static site), Node.js (gateway) |
 | **Template configuration** | Centralized management of service startup parameters |
-| **Heartbeat and liveness probing** | How the auth service stays reliably `active` |
+| **Heartbeat and liveness probing** | How services stay reliably `active` on the platform |
 | **Gateway and routing** | HTTP → TARS forwarding rules in `gateway/` |
-| **Release and scaling** | Packaging, upload, publish and rollback scripts in `deploy/` |
-| **Benchmarking and capacity planning** | Real QPS and latency percentiles in `Benchmark/` |
+| **Release and scaling** | Packaging, upload, release, rollback under `deploy/` |
+| **Benchmarking and capacity** | Measure QPS and latency percentiles with `Benchmark/` (planned) |
 
 ---
 
@@ -369,13 +390,27 @@ Open `http://<your-ip>:3000` to access the console.
 ### 2. Deploy This Project's Services
 
 ```bash
-cd deploy
-./n01-deploy-auth.sh      # Auth service
-./n02-deploy-cms.sh       # CMS service
-./n03-config-gateway.sh   # Gateway routing
+cd /root/tars-cms
+bash deploy/deploy.sh             # one-shot orchestration (n01~n11, idempotent)
+# or run each step standalone (reversible)
+bash deploy/n01-init-db.sh        # init DB (tables + seed data, idempotent)
+bash deploy/n02-package.sh        # build & package CmsServer
+bash deploy/n03-deploy.sh         # deploy CmsServer to tarsnode
+bash deploy/n04-verify.sh         # verify RPC connectivity (17 checks)
+bash deploy/n05-config-gateway.sh # register gateway station/upstream/router
+bash deploy/n06-deploy-web.sh     # build & deploy CmsWeb (static site + uploads)
+bash deploy/n07-config-web-gateway.sh # gateway routes / /admin/ /uploads/
+bash deploy/n08-fix-pid.sh        # install cron to fix not_tars PID
+bash deploy/n09-deploy-bff.sh     # build & deploy CmsBff (BFF)
+bash deploy/n10-fix-routes.sh     # route self-check (stale IP guard)
+bash deploy/n11-test.sh           # full-stack test suite (9 layers, 30+ assertions)
+
+# configure credentials first (never hardcoded in scripts)
+cp deploy/env.sh.example deploy/env.sh
+vi deploy/env.sh                  # set CMS_DB_PASS
 ```
 
-Each script runs standalone and documents its own rollback procedure.
+Each script runs standalone and is idempotent; see `deploy/README.md` for details.
 
 ---
 

@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -45,20 +47,84 @@ func (imp *authServantImp) Destroy() {
 }
 
 // Login 登录：验证用户名+密码，签发 token
+// 登录失败计数（P2-3：防暴力破解）
+// key = tenantId:username，value = {失败次数, 首次失败时间}
+var (
+	loginAttempts   = make(map[string]*loginAttempt)
+	loginAttemptsMu sync.Mutex
+)
+
+type loginAttempt struct {
+	Count     int
+	FirstFail time.Time
+}
+
+const (
+	loginMaxFails   = 5                // 连续失败上限
+	loginLockWindow = 10 * time.Minute // 锁定/统计窗口
+)
+
+// loginBlocked 检查是否已被锁定；返回剩余秒数（0 表示未锁）
+func loginBlocked(key string) int {
+	loginAttemptsMu.Lock()
+	defer loginAttemptsMu.Unlock()
+	a, ok := loginAttempts[key]
+	if !ok {
+		return 0
+	}
+	// 窗口过期 → 重置
+	if time.Since(a.FirstFail) > loginLockWindow {
+		delete(loginAttempts, key)
+		return 0
+	}
+	if a.Count >= loginMaxFails {
+		return int((loginLockWindow - time.Since(a.FirstFail)).Seconds())
+	}
+	return 0
+}
+
+func recordLoginFail(key string) {
+	loginAttemptsMu.Lock()
+	defer loginAttemptsMu.Unlock()
+	a, ok := loginAttempts[key]
+	if !ok || time.Since(a.FirstFail) > loginLockWindow {
+		loginAttempts[key] = &loginAttempt{Count: 1, FirstFail: time.Now()}
+		return
+	}
+	a.Count++
+}
+
+func clearLoginFail(key string) {
+	loginAttemptsMu.Lock()
+	defer loginAttemptsMu.Unlock()
+	delete(loginAttempts, key)
+}
+
 func (imp *authServantImp) Login(ctx context.Context, tenantId int32, username string, password string) (string, error) {
 	tid := int64(tenantId)
+
+	// P2-3: 先查是否被锁定
+	attemptKey := fmt.Sprintf("%d:%s", tid, username)
+	if secs := loginBlocked(attemptKey); secs > 0 {
+		return toJSONFail(fmt.Sprintf("too many failed attempts, try again in %d seconds", secs)), nil
+	}
 
 	var u User
 	if err := DB().Where("tenant_id = ? AND username = ? AND status = 1", tid, username).First(&u).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			recordLoginFail(attemptKey)
 			return toJSONFail("invalid username or password"), nil
 		}
 		return toJSONFail(err.Error()), nil
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
+		recordLoginFail(attemptKey)
 		return toJSONFail("invalid username or password"), nil
 	}
+
+	// 登录成功 → 清空失败计数
+	clearLoginFail(attemptKey)
 
 	token, err := issueToken(tid, u.ID)
 	if err != nil {

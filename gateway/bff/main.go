@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/TarsCloud/TarsGo/tars"
@@ -38,7 +39,35 @@ func main() {
 	authProxy := cms.NewAuthObj()
 	comm.StringToProxy(obj2, authProxy)
 
+	// RPC 超时（P2-4）：防止 TARS 调用挂起导致 HTTP 请求无限等待
+	// 默认 8s，可用 CMS_RPC_TIMEOUT_MS 覆盖
+	rpcTimeout := 8000
+	if v := os.Getenv("CMS_RPC_TIMEOUT_MS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			rpcTimeout = n
+		}
+	}
+	articleProxy.TarsSetTimeout(rpcTimeout)
+	authProxy.TarsSetTimeout(rpcTimeout)
+
 	mux := http.NewServeMux()
+
+	// ---------- 健康检查（P2-1）----------
+	// /health     : 服务存活（不调下游，快速返回）
+	// /health/full: 连带探测 CmsServer RPC 是否可用
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		io.WriteString(w, `{"status":"ok","service":"cms.CmsBff","rpc_timeout_ms":`+strconv.Itoa(rpcTimeout)+`}`)
+	})
+	mux.HandleFunc("/health/full", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if _, err := articleProxy.GetCategories(1); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			io.WriteString(w, `{"status":"degraded","error":"`+strings.ReplaceAll(err.Error(), `"`, "'")+`"}`)
+			return
+		}
+		io.WriteString(w, `{"status":"ok","rpc":"up"}`)
+	})
 
 	// ---------- 公开接口（H5 内容站） ----------
 
