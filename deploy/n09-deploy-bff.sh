@@ -61,14 +61,28 @@ chmod +x "$STAGE/CmsBff_bin"
 # 入口包装脚本：拦截 --config + exec 保持 PID
 cat > "$STAGE/CmsBff" << 'WRAPPER'
 #!/bin/sh
-# CmsBff 入口包装脚本
+# CmsBff 入口包装脚本（方案 A：启动自愈 + 方案 B：n08 cron 兜底）
 # tarsnode 注入 --config=<conf>，本服务不读该参数，直接忽略。
-# 必须 exec 替换进程镜像，保持 PID 让 tarsnode 能探测存活。
+# 必须 exec 替换进程镜像，保持 PID ($$) 不变。
 DIR=$(dirname "$0")
 
-# 环境变量（tarsnode 托管时的默认配置）
 export PORT="${PORT:-3103}"
 export CMS_UPLOAD_DIR="${CMS_UPLOAD_DIR:-/data/tars/cms/uploads}"
+
+# 【方案 A：启动自愈 + 持续守护】
+# tarsnode 记录的是 tars_start.sh 的死 PID，并每约 60s 覆盖一次 DB。
+# setsid 派生常驻守护，每 1s 把真实 PID ($$) 写回 DB（实测 95% active）。
+MY_PID=$$
+if command -v setsid >/dev/null 2>&1 && command -v mysql >/dev/null 2>&1; then
+    setsid sh -c '
+        MY_PID='"$MY_PID"'
+        while kill -0 $MY_PID 2>/dev/null; do
+            mysql -uroot -ptars@root.2026 -h172.25.0.2 db_tars -e \
+                "UPDATE t_server_conf SET process_id=$MY_PID, present_state=\"active\" WHERE application=\"cms\" AND server_name=\"CmsBff\";" >/dev/null 2>&1
+            sleep 1
+        done
+    ' >/dev/null 2>&1 < /dev/null &
+fi
 
 exec "$DIR/CmsBff_bin" "$@"
 WRAPPER

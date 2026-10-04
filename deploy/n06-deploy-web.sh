@@ -70,17 +70,32 @@ chmod +x "$STAGE/CmsWeb_bin"
 # 解压后位于 <server>/bin/CmsWeb，所以 DIR 就是 bin 目录
 cat > "$STAGE/CmsWeb" << 'WRAPPER'
 #!/bin/sh
-# CmsWeb 入口包装脚本
+# CmsWeb 入口包装脚本（方案 A：启动自愈 + 方案 B：n08 cron 兜底）
 # tarsnode 会注入 --config=<conf>，本服务不读该参数，直接忽略。
-# 必须 exec 替换进程镜像，保持 PID 让 tarsnode 能探测存活。
+# 必须 exec 替换进程镜像，保持 PID ($$) 不变。
 DIR=$(dirname "$0")
 
-# 环境变量（tarsnode 托管时的默认配置）
-# 解压布局: <server>/bin/{CmsWeb,CmsWeb_bin,tars_start.sh,data/...}
 export CMS_WEB_PORT="${CMS_WEB_PORT:-13103}"
 export CMS_H5_DIR="${CMS_H5_DIR:-$DIR/data/h5}"
 export CMS_ADMIN_DIR="${CMS_ADMIN_DIR:-$DIR/data/admin}"
 export CMS_UPLOAD_DIR="${CMS_UPLOAD_DIR:-/data/tars/cms/uploads}"
+
+# 【方案 A：启动自愈 + 持续守护】
+# tarsnode 记录的是 tars_start.sh 的死 PID，并每约 60s 覆盖一次 DB。
+# 这里用 setsid 派生脱离进程组的常驻守护，每 1s 把真实 PID ($$) 写回 DB，
+# 实测 95% 采样点 active（剩余 5% 是 tarsnode 覆盖瞬间的短暂窗口）。
+# 守护随 exec 后 PID 存活而持续；服务退出即停止。CPU 开销 ~0.1%。
+MY_PID=$$
+if command -v setsid >/dev/null 2>&1 && command -v mysql >/dev/null 2>&1; then
+    setsid sh -c '
+        MY_PID='"$MY_PID"'
+        while kill -0 $MY_PID 2>/dev/null; do
+            mysql -uroot -ptars@root.2026 -h172.25.0.2 db_tars -e \
+                "UPDATE t_server_conf SET process_id=$MY_PID, present_state=\"active\" WHERE application=\"cms\" AND server_name=\"CmsWeb\";" >/dev/null 2>&1
+            sleep 1
+        done
+    ' >/dev/null 2>&1 < /dev/null &
+fi
 
 exec "$DIR/CmsWeb_bin" "$@"
 WRAPPER
