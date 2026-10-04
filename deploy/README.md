@@ -60,6 +60,10 @@ bash deploy/n09-deploy-bff.sh         # 编译打包发布 cms.CmsBff（端口 3
 
 # ── 平台状态修正（必做，否则 not_tars 服务显示 inactive）──
 bash deploy/n08-fix-pid.sh            # 安装 cron，每分钟同步真实 PID
+
+# ── 路由自检（防服务迁移后残留旧 IP）──
+bash deploy/n10-fix-routes.sh         # 诊断 + 幂等修复网关路由
+bash deploy/n10-fix-routes.sh --check # 只诊断不改动
 ```
 
 ---
@@ -77,6 +81,7 @@ bash deploy/n08-fix-pid.sh            # 安装 cron，每分钟同步真实 PID
 | `n07-config-web-gateway.sh` | 网关路由 `/`、`/admin/`、`/uploads/` | 网关 8200 |
 | `n08-fix-pid.sh` | **安装 cron**：每分钟校正 not_tars 服务 PID | crontab |
 | `n09-deploy-bff.sh` | 编译 `gateway/bff/` → 发布 BFF | `cms.CmsBff` 3103 |
+| `n10-fix-routes.sh` | **路由自检**：诊断 + 幂等修复网关路由 | `t_http_router` |
 
 ---
 

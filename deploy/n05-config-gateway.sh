@@ -21,6 +21,7 @@ GW_HTTP="http://192.168.1.95:8200"
 NODE_IP="${CMS_NODE_IP:-$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tars-node 2>/dev/null)}"
 [ -n "$NODE_IP" ] || { echo "❌ 无法探测 tars-node IP"; exit 1; }
 BFF="$NODE_IP:3103"
+CMSWEB="$NODE_IP:13103"
 
 post() { curl -s -X POST "$1" -H "Content-Type: application/json" -d "$2"; }
 get()  { curl -s "$1"; }
@@ -47,8 +48,8 @@ echo ""
 echo "=== [4/5] 添加 HTTP 路由 /api/* → cms_bff ==="
 post "$BASE/add_httprouter" "{\"f_station_id\":\"$STATION_ID\",\"f_path_rule\":\"/api/\",\"f_proxy_pass\":\"http://$BFF\"}" | head -c 200
 echo ""
-# 也加一条 / 兜底（首页静态也走 BFF 或直接返回提示）
-post "$BASE/add_httprouter" "{\"f_station_id\":\"$STATION_ID\",\"f_path_rule\":\"/\",\"f_proxy_pass\":\"http://$BFF\"}" | head -c 200
+# / 兜底应指向 CmsWeb 静态站（BFF 只管 /api/，GET / 返回 404）
+post "$BASE/add_httprouter" "{\"f_station_id\":\"$STATION_ID\",\"f_path_rule\":\"/\",\"f_proxy_pass\":\"http://$CMSWEB\"}" | head -c 200
 echo ""
 
 echo ""

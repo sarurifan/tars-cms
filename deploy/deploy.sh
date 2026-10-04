@@ -109,6 +109,7 @@ run n06-deploy-web.sh     "编译打包发布 cms.CmsWeb（静态站+上传）"
 run n07-config-web-gateway.sh "网关路由 / /admin/ /uploads/"
 run n09-deploy-bff.sh     "编译打包发布 cms.CmsBff（BFF）"
 run n08-fix-pid.sh        "安装 cron 修正 not_tars PID"
+run n10-fix-routes.sh     "诊断并修正网关路由（防服务迁移残留旧 IP）"
 
 # ── 最终验证 ──
 step "最终验证"
