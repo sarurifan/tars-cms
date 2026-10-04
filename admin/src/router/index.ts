@@ -2,7 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '@/utils/auth'
 
 const router = createRouter({
-  history: createWebHistory(),
+  // 与 vite base: '/admin/' 保持一致，否则刷新子路由会 404
+  history: createWebHistory('/admin/'),
   routes: [
     {
       path: '/login',

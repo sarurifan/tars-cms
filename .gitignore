@@ -68,3 +68,4 @@ app_log/
 # ---- 项目本地 ----
 /local/
 *.local.*
+screenshots/

@@ -38,6 +38,32 @@
 
 ---
 
+## 界面预览
+
+> 以下截图来自项目实际运行环境（网关 `:8200` → CmsWeb `:13103`），非设计稿。
+
+**H5 内容站**（访客侧，手写 CSS，零 UI 库依赖）
+
+| 首页 | 文章详情 |
+| --- | --- |
+| ![H5 首页](docs/images/h5-home.png) | ![文章详情](docs/images/h5-article.png) |
+
+| 分类列表 | 登录 |
+| --- | --- |
+| ![分类列表](docs/images/h5-category.png) | ![H5 登录](docs/images/h5-login.png) |
+
+**Admin 管理后台**（Element Plus，8 个页面）
+
+| 登录 | 仪表盘 |
+| --- | --- |
+| ![后台登录](docs/images/admin-login.png) | ![仪表盘](docs/images/admin-dashboard.png) |
+
+| 文章列表 | 文章编辑（wangEditor） |
+| --- | --- |
+| ![文章列表](docs/images/admin-articles.png) | ![文章编辑](docs/images/admin-edit.png) |
+
+---
+
 ## 架构
 
 ```
@@ -224,6 +250,32 @@ It is not a toy demo, but a full-featured, runnable, decomposable, and extensibl
 | **Reversible operations** | Every deployment step is a standalone script with a matching rollback |
 | **Benchmarking included** | Ships with TarsBenchmark so you can measure QPS, latency and success rate yourself |
 | **Self-documenting** | The frontend site's content *is* this project's documentation and tutorials, managed by the CMS itself |
+
+---
+
+## Screenshots
+
+> Captured from a live deployment (`:8200` gateway → `:13103` CmsWeb), not design mocks.
+
+**H5 Content Site** (Visitor-facing, handwritten CSS, zero UI libraries)
+
+| Home | Article Detail |
+| --- | --- |
+| ![H5 Home](docs/images/h5-home.png) | ![Article Detail](docs/images/h5-article.png) |
+
+| Category List | Login |
+| --- | --- |
+| ![Category List](docs/images/h5-category.png) | ![H5 Login](docs/images/h5-login.png) |
+
+**Admin Dashboard** (Element Plus, 8 pages)
+
+| Login | Dashboard |
+| --- | --- |
+| ![Admin Login](docs/images/admin-login.png) | ![Dashboard](docs/images/admin-dashboard.png) |
+
+| Article List | Article Editor (wangEditor) |
+| --- | --- |
+| ![Article List](docs/images/admin-articles.png) | ![Article Editor](docs/images/admin-edit.png) |
 
 ---
 

@@ -32,7 +32,8 @@
         <p class="article-summary" v-if="article.summary">{{ article.summary }}</p>
 
         <div class="article-meta">
-          <span class="meta-item" v-if="article.author">✍️ {{ article.author }}</span>
+          <span class="meta-item" v-if="article.author && article.author.name">✍️ {{ article.author.name }}</span>
+          <span class="meta-item" v-else-if="typeof article.author === 'string' && article.author">✍️ {{ article.author }}</span>
           <span class="meta-item" v-if="article.source">📎 来源：{{ article.source }}</span>
           <span class="meta-item">🕐 {{ publishText }}</span>
           <span class="meta-item">👁 {{ article.view_count || 0 }} 次阅读</span>

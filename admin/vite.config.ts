@@ -4,6 +4,9 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
+  // admin 部署在 CmsWeb 的 /admin/ 子路径下，必须设置 base，
+  // 否则产物会引用根路径 /assets/* 而被网关的 / 路由（h5）抢走 → 白屏
+  base: '/admin/',
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
