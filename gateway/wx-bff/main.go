@@ -211,6 +211,28 @@ func main() {
 		writeJSON(w, result)
 	})
 
+	// 小程序微信登录（code → openid → cms token）
+	mux.HandleFunc("/api/wx/ma/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSONError(w, "POST required")
+			return
+		}
+		tenantId := int32(parseInt(r.URL.Query().Get("tenantId"), 1))
+		body := parseJSONBody(r)
+		appid := body["appid"]
+		code := body["code"]
+		if appid == "" || code == "" {
+			writeJSONError(w, "appid and code required")
+			return
+		}
+		result, err := maProxy.Login(tenantId, appid, code)
+		if err != nil {
+			writeJSONError(w, err.Error())
+			return
+		}
+		writeJSON(w, result)
+	})
+
 	// 小程序发送订阅消息
 	mux.HandleFunc("/api/wx/ma/subscribe/send", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

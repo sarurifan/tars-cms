@@ -95,3 +95,52 @@ node /tmp/mp-verify.js    # 模拟 api.js 请求逻辑，断言字段契约
 小程序登录/消息能力由 TARS 节点 `wx` 提供，接口见 `deploy/n25-wx-test.sh` 验证的 7 个端点：
 `/api/wx/ma/code2session`、`/api/wx/ma/token`、`/api/wx/ma/subscribe/send`、
 `/api/wx/mp/token`、`/api/wx/mp/userinfo`、`/api/wx/mp/template/send`、`/api/wx/verify`。
+
+## 微信登录（已实现）
+
+小程序「我的」页支持**微信一键登录**，与 h5/admin 共用同一套 cms 账号体系。
+
+### 登录链路
+
+```
+wx.login 拿 code
+  ↓
+POST /api/wx/ma/login  (网关 → wx-bff:3203 → wx.WxServer:13202)
+  ↓
+微信 code2session 换 openid（真调微信 API）
+  ↓
+查/建 tars_cms.users（首次登录自动建号，username = wx_ + openid后12位）
+  ↓
+签发 cms_session token（7 天，与 cms.AuthObj 同机制）
+  ↓
+返回 {token, user} → app.setLogin() → 本地缓存 cms_token
+```
+
+### 涉及文件
+
+| 文件 | 改动 |
+|---|---|
+| `wx/wx.tars` | MaObj 新增 `login(int tenantId, string appid, string jsCode)` |
+| `wx/login.go` | 跨库查/建 `tars_cms.users` + 签发 `cms_session` token |
+| `wx/wx_imp.go` | `maServantImp.Login` 实现 |
+| `gateway/wx-bff/main.go` | 新增 `POST /api/wx/ma/login` 路由 |
+| `mp/utils/api.js` | `wxLogin(jsCode, appid)` + 请求自动带 `Authorization: ***` |
+| `mp/app.js` | 登录态存取（`setLogin`/`clearLogin`/`isLoggedIn`） |
+| `mp/pages/profile/` | 我的页：登录按钮 + 用户信息 + 退出 |
+
+### 真机登录（3 步）
+
+1. 微信公众平台拿到 AppID，填入 `mp/pages/profile/index.js` 的 `WX_APPID` 常量
+2. 把 `wx_account` 表里 `wx_test_ma_demo` 换成真实 appid + app_secret
+   （或跑 `deploy/n20-wx-init-db.sh` 后手动 UPDATE）
+3. 微信后台配置 `request 合法域名` 指向网关（HTTPS），真机编译即可登录
+
+> 未配置 AppID 时为**演示模式**：登录按钮弹提示说明，不发起真实请求。
+
+### 验证
+
+```bash
+bash deploy/n26-wx-login-test.sh   # 5/5：登录路由 / 登录态互通 / 绑定 / 校验 / 内容
+```
+
+核心断言：**微信登录签发的 token 能被 cms userinfo 接受**（登录态完全互通）。

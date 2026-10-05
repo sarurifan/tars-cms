@@ -3,8 +3,15 @@
 
   <!-- 顶部介绍条（演示项目说明） -->
   <view class="intro-bar">
-    <view class="intro-title">tars-cms</view>
-    <view class="intro-desc">写给新手的 TARS 微服务实战项目 · 内容由 CMS 自身管理</view>
+    <view class="intro-row">
+      <view>
+        <view class="intro-title">tars-cms</view>
+        <view class="intro-desc">写给新手的 TARS 微服务实战项目</view>
+      </view>
+      <view class="intro-login" bindtap="goProfile">
+        {{loginText}}
+      </view>
+    </view>
   </view>
 
   <!-- 轮播图 -->

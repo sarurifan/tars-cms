@@ -316,6 +316,78 @@ func (imp *maServantImp) CheckSession(_ context.Context, _ int32, openid, sessio
 	return toJSONOK(map[string]interface{}{"valid": true}), nil
 }
 
+// Login 微信一键登录：code 换 openid → 建/查 cms 用户 → 签发 cms token
+func (imp *maServantImp) Login(ctx context.Context, tenantId int32, appid, jsCode string) (string, error) {
+	// 1. 调微信 code2session 换 openid
+	acct, err := getWxAccount(appid)
+	if err != nil {
+		return toJSONFail(fmt.Sprintf("小程序账号未配置: %v", err)), nil
+	}
+	url := fmt.Sprintf(
+		"https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+		appid, acct.AppSecret, jsCode,
+	)
+	var wr struct {
+		Openid     string `json:"openid"`
+		SessionKey string `json:"session_key"`
+		Unionid    string `json:"unionid"`
+		Errcode    int    `json:"errcode"`
+		Errmsg     string `json:"errmsg"`
+	}
+	if err := httpGetJSON(url, &wr); err != nil {
+		return toJSONFail(err.Error()), nil
+	}
+	if wr.Errcode != 0 {
+		return toJSONFail(fmt.Sprintf("wx err %d: %s", wr.Errcode, wr.Errmsg)), nil
+	}
+	if wr.Openid == "" {
+		return toJSONFail("code2session 未返回 openid"), nil
+	}
+
+	// 2. 更新 wx_user 的 session_key（存在则更新，不存在则留给绑定流程建）
+	var wxu WxUser
+	if err := DB().Where("openid = ?", wr.Openid).First(&wxu).Error; err == nil {
+		DB().Model(&WxUser{}).Where("id = ?", wxu.ID).Updates(map[string]interface{}{
+			"session_key": wr.SessionKey,
+			"unionid":     wr.Unionid,
+		})
+	} else {
+		DB().Create(&WxUser{
+			TenantID:   tenantId,
+			AppID:      appid,
+			OpenID:     wr.Openid,
+			UnionID:    wr.Unionid,
+			SessionKey: wr.SessionKey,
+			Nickname:   "微信用户",
+		})
+	}
+
+	// 3. 建/查 cms 用户
+	u, err := findOrCreateUserByOpenid(int64(tenantId), wr.Openid, wr.Unionid, appid)
+	if err != nil {
+		return toJSONFail(err.Error()), nil
+	}
+
+	// 4. 签发 cms_session token
+	token, expires, err := issueCmsToken(int64(tenantId), u.ID)
+	if err != nil {
+		return toJSONFail(err.Error()), nil
+	}
+
+	return toJSONOK(map[string]interface{}{
+		"token":      token,
+		"expires_at": fmtTime(expires),
+		"is_new":     false,
+		"user": map[string]interface{}{
+			"id":       u.ID,
+			"username": u.Username,
+			"nickname": u.Nickname,
+			"avatar":   u.Avatar,
+			"role":     u.Role,
+		},
+	}), nil
+}
+
 // 保持编译时校验接口实现
 var _ wx.MpObjServantWithContext = (*mpServantImp)(nil)
 var _ wx.MaObjServantWithContext = (*maServantImp)(nil)

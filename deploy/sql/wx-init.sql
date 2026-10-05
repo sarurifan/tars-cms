@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS `wx_user` (
     `country`     VARCHAR(32)  NOT NULL DEFAULT ''     COMMENT '国家',
     `subscribe`   TINYINT      NOT NULL DEFAULT 0      COMMENT '公众号关注状态: 0未关注 1已关注',
     `session_key` VARCHAR(128) NOT NULL DEFAULT ''     COMMENT '小程序 session_key (严禁返回前端)',
+    `cms_user_id` BIGINT       NOT NULL DEFAULT 0      COMMENT '绑定的 tars_cms.users.id',
     `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),

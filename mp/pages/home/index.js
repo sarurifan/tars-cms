@@ -1,9 +1,12 @@
 // pages/home/index.js — 首页逻辑（对应 h5 HomePage）
 const api = require('../../utils/api');
+const app = getApp();
 
 Page({
   data: {
     loading: true,
+    isLoggedIn: false,
+    loginText: '登录',
     home: {
       banners: [],
       topArticles: [],
@@ -12,6 +15,16 @@ Page({
       categories: [],
       config: {}
     }
+  },
+
+  onShow() {
+    // 每次显示时刷新登录态（登录页返回后更新）
+    const loggedIn = app.isLoggedIn();
+    const u = app.globalData.user || {};
+    this.setData({
+      isLoggedIn: loggedIn,
+      loginText: loggedIn ? (u.nickname || u.username || '已登录') : '登录'
+    });
   },
 
   onLoad() {
@@ -48,5 +61,9 @@ Page({
 
   goAllArticles() {
     wx.navigateTo({ url: '/pages/category/index' });
+  },
+
+  goProfile() {
+    wx.navigateTo({ url: '/pages/profile/index' });
   }
 });

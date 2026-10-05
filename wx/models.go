@@ -47,6 +47,7 @@ type WxUser struct {
 	Country   string    `gorm:"size:32" json:"country"`
 	Subscribe int8      `gorm:"default:0" json:"subscribe"`          // 公众号关注状态: 1已关注 0未关注
 	SessionKey string   `gorm:"size:128" json:"-"`                   // 小程序 session_key (绝不对外暴露)
+	CmsUserID  int64    `gorm:"index;default:0" json:"cms_user_id"`  // 绑定的 tars_cms.users.id
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

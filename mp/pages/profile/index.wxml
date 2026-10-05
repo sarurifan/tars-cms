@@ -1,0 +1,50 @@
+<!-- pages/profile/index.wxml — 我的（登录 + 用户信息） -->
+<view class="profile-page">
+
+  <!-- 已登录 -->
+  <view class="user-card" wx:if="{{isLoggedIn}}">
+    <view class="user-avatar-wrap">
+      <image wx:if="{{user.avatar}}" class="user-avatar" src="{{user.avatar}}" mode="aspectFill" />
+      <view wx:else class="user-avatar user-avatar-placeholder">{{avatarText}}</view>
+    </view>
+    <view class="user-info">
+      <view class="user-name">{{user.nickname || user.username}}</view>
+      <view class="user-sub">ID: {{user.id}} · {{user.role}}</view>
+    </view>
+  </view>
+
+  <!-- 未登录 -->
+  <view class="login-card" wx:else>
+    <view class="login-icon">👤</view>
+    <view class="login-title">未登录</view>
+    <view class="login-desc">使用微信一键登录（与 h5 同一账号体系）</view>
+    <button class="btn-primary btn-login" bindtap="doWxLogin" loading="{{logging}}">
+      微信一键登录
+    </button>
+    <view class="login-tip" wx:if="{{appidMissing}}">
+      ⚠ 未配置 AppID，当前为演示模式（需填入真实小程序 AppID 才能登录）
+    </view>
+  </view>
+
+  <!-- 功能入口 -->
+  <view class="menu-card">
+    <view class="menu-item" bindtap="goAbout">
+      <text class="menu-label">📖 关于项目</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goHome">
+      <text class="menu-label">🏠 返回首页</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" wx:if="{{isLoggedIn}}" bindtap="doLogout">
+      <text class="menu-label menu-danger">🚪 退出登录</text>
+      <text class="menu-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 演示说明 -->
+  <view class="demo-note">
+    本页为演示项目 · 登录态存于本地缓存 cms_token
+  </view>
+
+</view>

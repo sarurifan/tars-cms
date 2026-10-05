@@ -37,5 +37,8 @@ module wx
 
         // 校验登录态 sessionKey 有效性
         string checkSession(int tenantId, string openid, string sessionKey);
+
+        // 微信一键登录：code 换 openid → 建/查 cms 用户 → 签发 cms token
+        string login(int tenantId, string appid, string jsCode);
     };
 };

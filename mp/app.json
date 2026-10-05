@@ -3,7 +3,8 @@
     "pages/home/index",
     "pages/category/index",
     "pages/article/index",
-    "pages/about/index"
+    "pages/about/index",
+    "pages/profile/index"
   ],
   "window": {
     "navigationBarTitleText": "tars-cms",

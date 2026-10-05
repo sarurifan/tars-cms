@@ -124,6 +124,7 @@ bash deploy/n14-compose-deploy.sh
 | `n23-wx-bff.sh` | **微信节点**：部署 `wx.WxBff` (3203, not_tars 模式) | `wx.WxBff` 3203 |
 | `n24-wx-config-gateway.sh` | **微信节点**：配置网关路由 `/api/wx/*`（f_id=2 优于 `/api/` 命中） | 网关 8200 |
 | `n25-wx-test.sh` | **微信节点测试**：5 层 9 项全链路断言（存活/RPC/路由/公众号/小程序/DB） | 测试脚本 |
+| `n26-wx-login-test.sh` | **微信登录测试**：5 项断言，核心验证签发 token 被 cms 接受（登录态互通） | 测试脚本 |
 
 ---
 

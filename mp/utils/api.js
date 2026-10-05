@@ -5,16 +5,22 @@ const app = getApp();
 
 // 封装请求
 function request(path, options = {}) {
-  const { baseUrl, tenantId } = app.globalData;
+  const { baseUrl, tenantId, token } = app.globalData;
+  const header = {
+    'Content-Type': 'application/json',
+    ...(options.header || {})
+  };
+  // 已登录则带 token（cms 体系用 Authorization: Bearer）
+  if (token) {
+    header['Authorization'] = 'Bearer ' + token;
+  }
+
   return new Promise((resolve, reject) => {
     wx.request({
       url: `${baseUrl}${path}`,
       method: options.method || 'GET',
       data: options.data || { tenantId },
-      header: {
-        'Content-Type': 'application/json',
-        ...(options.header || {})
-      },
+      header,
       success(res) {
         resolve(res.data);
       },
@@ -82,5 +88,18 @@ module.exports = {
 
   logout() {
     return request('/api/auth/logout', { method: 'POST' });
+  },
+
+  // ============ 微信登录 ============
+
+  /**
+   * 微信一键登录：wx.login 拿 code → 后端换 openid → 签发 cms token
+   * @returns {Promise<{code, msg, data: {token, expires_at, user}}>}
+   */
+  wxLogin(jsCode, appid = '') {
+    return request('/api/wx/ma/login', {
+      method: 'POST',
+      data: { tenantId: 1, appid, code: jsCode }
+    });
   }
 };

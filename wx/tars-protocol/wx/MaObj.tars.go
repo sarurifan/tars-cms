@@ -33,6 +33,7 @@ type MaObjServant interface {
 	GetAccessToken(tenantId int32, appid string) (ret string, err error)
 	SendSubscribeMsg(tenantId int32, appid string, openid string, templateId string, dataJson string, page string) (ret string, err error)
 	CheckSession(tenantId int32, openid string, sessionKey string) (ret string, err error)
+	Login(tenantId int32, appid string, jsCode string) (ret string, err error)
 }
 
 type MaObjServantWithContext interface {
@@ -40,6 +41,7 @@ type MaObjServantWithContext interface {
 	GetAccessToken(tarsCtx context.Context, tenantId int32, appid string) (ret string, err error)
 	SendSubscribeMsg(tarsCtx context.Context, tenantId int32, appid string, openid string, templateId string, dataJson string, page string) (ret string, err error)
 	CheckSession(tarsCtx context.Context, tenantId int32, openid string, sessionKey string) (ret string, err error)
+	Login(tarsCtx context.Context, tenantId int32, appid string, jsCode string) (ret string, err error)
 }
 
 // MaObj struct
@@ -719,6 +721,158 @@ func (obj *MaObj) CheckSessionOneWayWithContext(tarsCtx context.Context, tenantI
 	return ret, nil
 }
 
+// Login is the proxy function for the method defined in the tars file, with the context
+func (obj *MaObj) Login(tenantId int32, appid string, jsCode string, opts ...map[string]string) (string, error) {
+	return obj.LoginWithContext(context.Background(), tenantId, appid, jsCode, opts...)
+}
+
+// LoginWithContext is the proxy function for the method defined in the tars file, with the context
+func (obj *MaObj) LoginWithContext(tarsCtx context.Context, tenantId int32, appid string, jsCode string, opts ...map[string]string) (ret string, err error) {
+	var (
+		length int32
+		have   bool
+		ty     byte
+	)
+	buf := codec.NewBuffer()
+	err = buf.WriteInt32(tenantId, 1)
+	if err != nil {
+		return ret, err
+	}
+
+	err = buf.WriteString(appid, 2)
+	if err != nil {
+		return ret, err
+	}
+
+	err = buf.WriteString(jsCode, 3)
+	if err != nil {
+		return ret, err
+	}
+
+	trace, ok := current.GetTarsTrace(tarsCtx)
+	if ok && trace.Call() {
+		var traceParam string
+		trace.NewSpan()
+		traceParamFlag := trace.NeedTraceParam(tarstrace.EstCS, uint(buf.Len()))
+		if traceParamFlag == tarstrace.EnpNormal {
+			value := map[string]interface{}{}
+			value["tenantId"] = tenantId
+			value["appid"] = appid
+			value["jsCode"] = jsCode
+			jm, _ := json.Marshal(value)
+			traceParam = string(jm)
+		} else if traceParamFlag == tarstrace.EnpOverMaxLen {
+			traceParam = `{"trace_param_over_max_len":true}`
+		}
+		tars.Trace(trace.GetTraceKey(tarstrace.EstCS), tarstrace.AnnotationCS, tars.GetClientConfig().ModuleName, obj.servant.Name(), "login", 0, traceParam, "")
+	}
+
+	var statusMap map[string]string
+	var contextMap map[string]string
+	if len(opts) == 1 {
+		contextMap = opts[0]
+	} else if len(opts) == 2 {
+		contextMap = opts[0]
+		statusMap = opts[1]
+	}
+
+	tarsResp := new(requestf.ResponsePacket)
+	err = obj.servant.TarsInvoke(tarsCtx, 0, "login", buf.ToBytes(), statusMap, contextMap, tarsResp)
+	if err != nil {
+		return ret, err
+	}
+	readBuf := codec.NewReader(tools.Int8ToByte(tarsResp.SBuffer))
+	err = readBuf.ReadString(&ret, 0, true)
+	if err != nil {
+		return ret, err
+	}
+
+	if ok && trace.Call() {
+		var traceParam string
+		traceParamFlag := trace.NeedTraceParam(tarstrace.EstCR, uint(readBuf.Len()))
+		if traceParamFlag == tarstrace.EnpNormal {
+			value := map[string]interface{}{}
+			value[""] = ret
+			jm, _ := json.Marshal(value)
+			traceParam = string(jm)
+		} else if traceParamFlag == tarstrace.EnpOverMaxLen {
+			traceParam = `{"trace_param_over_max_len":true}`
+		}
+		tars.Trace(trace.GetTraceKey(tarstrace.EstCR), tarstrace.AnnotationCR, tars.GetClientConfig().ModuleName, obj.servant.Name(), "login", tarsResp.IRet, traceParam, "")
+	}
+
+	if len(opts) == 1 {
+		for k := range contextMap {
+			delete(contextMap, k)
+		}
+		for k, v := range tarsResp.Context {
+			contextMap[k] = v
+		}
+	} else if len(opts) == 2 {
+		for k := range contextMap {
+			delete(contextMap, k)
+		}
+		for k, v := range tarsResp.Context {
+			contextMap[k] = v
+		}
+		for k := range statusMap {
+			delete(statusMap, k)
+		}
+		for k, v := range tarsResp.Status {
+			statusMap[k] = v
+		}
+	}
+
+	_ = length
+	_ = have
+	_ = ty
+	return ret, nil
+}
+
+// LoginOneWayWithContext is the proxy function for the method defined in the tars file, with the context
+func (obj *MaObj) LoginOneWayWithContext(tarsCtx context.Context, tenantId int32, appid string, jsCode string, opts ...map[string]string) (ret string, err error) {
+	var (
+		length int32
+		have   bool
+		ty     byte
+	)
+	buf := codec.NewBuffer()
+	err = buf.WriteInt32(tenantId, 1)
+	if err != nil {
+		return ret, err
+	}
+
+	err = buf.WriteString(appid, 2)
+	if err != nil {
+		return ret, err
+	}
+
+	err = buf.WriteString(jsCode, 3)
+	if err != nil {
+		return ret, err
+	}
+
+	var statusMap map[string]string
+	var contextMap map[string]string
+	if len(opts) == 1 {
+		contextMap = opts[0]
+	} else if len(opts) == 2 {
+		contextMap = opts[0]
+		statusMap = opts[1]
+	}
+
+	tarsResp := new(requestf.ResponsePacket)
+	err = obj.servant.TarsInvoke(tarsCtx, 1, "login", buf.ToBytes(), statusMap, contextMap, tarsResp)
+	if err != nil {
+		return ret, err
+	}
+
+	_ = length
+	_ = have
+	_ = ty
+	return ret, nil
+}
+
 // Dispatch is used to call the server side implement for the method defined in the tars file. withContext shows using context or not.
 func (obj *MaObj) Dispatch(tarsCtx context.Context, val interface{}, tarsReq *requestf.RequestPacket, tarsResp *requestf.ResponsePacket, withContext bool) (err error) {
 	var (
@@ -1386,6 +1540,161 @@ func (obj *MaObj) Dispatch(tarsCtx context.Context, val interface{}, tarsReq *re
 				traceParam = `{"trace_param_over_max_len":true}`
 			}
 			tars.Trace(trace.GetTraceKey(tarstrace.EstSS), tarstrace.AnnotationSS, tars.GetClientConfig().ModuleName, tarsReq.SServantName, "checkSession", 0, traceParam, "")
+		}
+	case "login":
+		var tenantId int32
+		var appid string
+		var jsCode string
+		if tarsReq.IVersion == basef.TARSVERSION {
+			err = readBuf.ReadInt32(&tenantId, 1, true)
+			if err != nil {
+				return err
+			}
+			err = readBuf.ReadString(&appid, 2, true)
+			if err != nil {
+				return err
+			}
+			err = readBuf.ReadString(&jsCode, 3, true)
+			if err != nil {
+				return err
+			}
+		} else if tarsReq.IVersion == basef.TUPVERSION {
+			reqTup := tup.NewUniAttribute()
+			reqTup.Decode(readBuf)
+
+			var tupBuffer []byte
+
+			reqTup.GetBuffer("tenantId", &tupBuffer)
+			readBuf.Reset(tupBuffer)
+			err = readBuf.ReadInt32(&tenantId, 0, true)
+			if err != nil {
+				return err
+			}
+
+			reqTup.GetBuffer("appid", &tupBuffer)
+			readBuf.Reset(tupBuffer)
+			err = readBuf.ReadString(&appid, 0, true)
+			if err != nil {
+				return err
+			}
+
+			reqTup.GetBuffer("jsCode", &tupBuffer)
+			readBuf.Reset(tupBuffer)
+			err = readBuf.ReadString(&jsCode, 0, true)
+			if err != nil {
+				return err
+			}
+		} else if tarsReq.IVersion == basef.JSONVERSION {
+			var jsonData map[string]interface{}
+			decoder := json.NewDecoder(bytes.NewReader(readBuf.ToBytes()))
+			decoder.UseNumber()
+			err = decoder.Decode(&jsonData)
+			if err != nil {
+				return fmt.Errorf("decode reqpacket failed, error: %+v", err)
+			}
+			{
+				jsonStr, _ := json.Marshal(jsonData["tenantId"])
+				if err = json.Unmarshal(jsonStr, &tenantId); err != nil {
+					return err
+				}
+			}
+			{
+				jsonStr, _ := json.Marshal(jsonData["appid"])
+				if err = json.Unmarshal(jsonStr, &appid); err != nil {
+					return err
+				}
+			}
+			{
+				jsonStr, _ := json.Marshal(jsonData["jsCode"])
+				if err = json.Unmarshal(jsonStr, &jsCode); err != nil {
+					return err
+				}
+			}
+		} else {
+			err = fmt.Errorf("decode reqpacket fail, error version: %d", tarsReq.IVersion)
+			return err
+		}
+
+		trace, ok := current.GetTarsTrace(tarsCtx)
+		if ok && trace.Call() {
+			var traceParam string
+			traceParamFlag := trace.NeedTraceParam(tarstrace.EstSR, uint(readBuf.Len()))
+			if traceParamFlag == tarstrace.EnpNormal {
+				value := map[string]interface{}{}
+				value["tenantId"] = tenantId
+				value["appid"] = appid
+				value["jsCode"] = jsCode
+				jm, _ := json.Marshal(value)
+				traceParam = string(jm)
+			} else if traceParamFlag == tarstrace.EnpOverMaxLen {
+				traceParam = `{"trace_param_over_max_len":true}`
+			}
+			tars.Trace(trace.GetTraceKey(tarstrace.EstSR), tarstrace.AnnotationSR, tars.GetClientConfig().ModuleName, tarsReq.SServantName, "login", 0, traceParam, "")
+		}
+
+		var funRet string
+		if !withContext {
+			imp := val.(MaObjServant)
+			funRet, err = imp.Login(tenantId, appid, jsCode)
+		} else {
+			imp := val.(MaObjServantWithContext)
+			funRet, err = imp.Login(tarsCtx, tenantId, appid, jsCode)
+		}
+		if err != nil {
+			return err
+		}
+
+		if tarsReq.IVersion == basef.TARSVERSION {
+			buf.Reset()
+
+			err = buf.WriteString(funRet, 0)
+			if err != nil {
+				return err
+			}
+		} else if tarsReq.IVersion == basef.TUPVERSION {
+			rspTup := tup.NewUniAttribute()
+
+			err = buf.WriteString(funRet, 0)
+			if err != nil {
+				return err
+			}
+
+			rspTup.PutBuffer("", buf.ToBytes())
+			rspTup.PutBuffer("tars_ret", buf.ToBytes())
+
+			buf.Reset()
+			err = rspTup.Encode(buf)
+			if err != nil {
+				return err
+			}
+		} else if tarsReq.IVersion == basef.JSONVERSION {
+			rspJson := map[string]interface{}{}
+			rspJson["tars_ret"] = funRet
+
+			var rspByte []byte
+			if rspByte, err = json.Marshal(rspJson); err != nil {
+				return err
+			}
+
+			buf.Reset()
+			err = buf.WriteSliceUint8(rspByte)
+			if err != nil {
+				return err
+			}
+		}
+
+		if ok && trace.Call() {
+			var traceParam string
+			traceParamFlag := trace.NeedTraceParam(tarstrace.EstSS, uint(buf.Len()))
+			if traceParamFlag == tarstrace.EnpNormal {
+				value := map[string]interface{}{}
+				value[""] = funRet
+				jm, _ := json.Marshal(value)
+				traceParam = string(jm)
+			} else if traceParamFlag == tarstrace.EnpOverMaxLen {
+				traceParam = `{"trace_param_over_max_len":true}`
+			}
+			tars.Trace(trace.GetTraceKey(tarstrace.EstSS), tarstrace.AnnotationSS, tars.GetClientConfig().ModuleName, tarsReq.SServantName, "login", 0, traceParam, "")
 		}
 
 	default:
