@@ -1,0 +1,41 @@
+module wx
+{
+    // ==========================================
+    // MpObj — 微信公众号服务端核心能力
+    // ==========================================
+    interface MpObj
+    {
+        // access_token 中控读取（带自动缓存与失效预警）
+        string getAccessToken(int tenantId, string appid);
+
+        // 强制刷新 access_token
+        string refreshAccessToken(int tenantId, string appid);
+
+        // 获取用户基本信息（UnionID 机制）
+        string getUserInfo(int tenantId, string appid, string openid);
+
+        // 发送模板消息
+        string sendTemplateMsg(int tenantId, string appid, string openid, string templateId, string dataJson, string url);
+
+        // 辅助校验签名（接入验证）
+        string verifySignature(string token, string timestamp, string nonce, string signature);
+    };
+
+    // ==========================================
+    // MaObj — 微信小程序服务端核心能力
+    // ==========================================
+    interface MaObj
+    {
+        // 登录凭证校验（code 换取 openid + session_key + unionid）
+        string code2Session(int tenantId, string appid, string jsCode);
+
+        // 获取小程序 access_token（中控统一管理）
+        string getAccessToken(int tenantId, string appid);
+
+        // 发送订阅消息
+        string sendSubscribeMsg(int tenantId, string appid, string openid, string templateId, string dataJson, string page);
+
+        // 校验登录态 sessionKey 有效性
+        string checkSession(int tenantId, string openid, string sessionKey);
+    };
+};

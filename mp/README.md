@@ -28,10 +28,41 @@ cms.CmsServer :13101 / :13102
 
 ## 待办
 
+- [x] 微信后端节点（`wx.WxServer` TARS 服务）：access_token 中控、code2session、模板/订阅消息 —— **已完成并部署**
+- [x] `wx.WxBff` (3203) + 网关路由 `/api/wx/*` —— **已完成**
 - [ ] 选择框架（原生小程序 / uni-app / Taro）
 - [ ] 登录态适配（`cms_session` token 存 `wx.setStorageSync`）
-- [ ] 微信登录对接（需小程序 AppID + 后端 `jscode2session`）
 - [ ] 页面：首页 / 分类 / 文章详情 / 我的
+
+## 微信后端节点（wx）
+
+小程序后端能力已由 TARS 节点提供（见 `wx/` 与 `deploy/n2x-wx-*.sh`）：
+
+```
+mp (小程序)  →  wx.login 拿 code
+    ↓ HTTPS
+TarsGateway :8200   (/api/wx/*)
+    ↓
+wx-bff :3203        (HTTP → TARS RPC)
+    ↓
+wx.WxServer :13201(公众号) / :13202(小程序)
+    ↓
+tars_wx 库
+```
+
+已就绪接口（经网关 `Host: cms`）：
+
+| 接口 | 说明 |
+|---|---|
+| `POST /api/wx/ma/code2session` | 小程序 code 换 openid（登录） |
+| `GET /api/wx/ma/token` | 小程序 access_token（中控） |
+| `POST /api/wx/ma/subscribe/send` | 订阅消息 |
+| `GET /api/wx/mp/token` | 公众号 access_token（中控） |
+| `GET /api/wx/mp/userinfo` | 关注用户信息 |
+| `POST /api/wx/mp/template/send` | 模板消息 |
+| `GET /api/wx/verify` | 微信验签 |
+
+> 接入真实 AppID 后，在小程序里 `wx.login` → 拿 code → 调 `code2session` 即可。
 
 ## 注意
 

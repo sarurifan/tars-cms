@@ -118,6 +118,12 @@ bash deploy/n14-compose-deploy.sh
 | `n12-health-monitor.sh` | **健康巡检**：每 5 分钟，连续 3 次异常才告警；`--install`/`--uninstall` 管 cron | 4 HTTP + 3 服务状态 |
 | `n13-logrotate.sh` | **日志轮转**：>50M 归档并截断（gzip + 保留 7 份），`--install` 每小时 cron | 容器 tars-node 内 `app_log` |
 | `n14-compose-deploy.sh` | **Compose 校验/部署**：全新机一键起 4 容器；现有环境只校验不改动 | `docker-compose.yml` |
+| `n20-wx-init-db.sh` | **微信节点**：建 `tars_wx` 库与 4 张业务表（账号/token/用户/消息） | `tars_wx` |
+| `n21-wx-package.sh` | **微信节点**：打包 `wx.WxServer`（Go 静态编译 + 扁平 tgz） | `WxServer.tgz` |
+| `n22-wx-deploy.sh` | **微信节点**：部署 `wx.WxServer` 到 tarsnode（13201 公众号 + 13202 小程序） | `wx.WxServer` |
+| `n23-wx-bff.sh` | **微信节点**：部署 `wx.WxBff` (3203, not_tars 模式) | `wx.WxBff` 3203 |
+| `n24-wx-config-gateway.sh` | **微信节点**：配置网关路由 `/api/wx/*`（f_id=2 优于 `/api/` 命中） | 网关 8200 |
+| `n25-wx-test.sh` | **微信节点测试**：5 层 9 项全链路断言（存活/RPC/路由/公众号/小程序/DB） | 测试脚本 |
 
 ---
 
