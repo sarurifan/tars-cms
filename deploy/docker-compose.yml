@@ -1,0 +1,123 @@
+# ================================================================
+# tars-cms 基础设施 compose —— 一次性起 TARS 全家桶
+# ================================================================
+#
+# 【用法】
+#   docker compose -f deploy/docker-compose.yml up -d
+#
+#   然后发布 tars-cms 业务服务（仍在宿主机跑，因为要上传到 tarsnode）：
+#   bash deploy/deploy.sh
+#
+# 【组件】
+#   tars-mysql       MySQL 5.6（框架 + cms 业务库）
+#   tars-framework   TARS 框架（Web 管理平台 :3000 + 核心服务）
+#   tars-node        应用节点（tarsnode + 托管的 cms 三服务）
+#   tars-gateway-nginx 宿主机 nginx (:8200) 对外反代
+#
+# 【数据】
+#   复用现有 /docker/tars/ 目录，不重建数据。
+#   首次 up 前该目录必须存在，否则挂载出空卷会导致框架重新初始化。
+#
+# 【网络】
+#   固定子网 172.25.0.0/16（与现有环境一致，服务间靠 IP 互相寻址）
+#   gateway 的 172.25.0.4 为预留 IP（现有环境未占用）
+# ================================================================
+
+name: tars-cms
+
+networks:
+  tars:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
+
+services:
+  # ── MySQL 5.6：TARS 框架 + cms 业务库 ──
+  tars-mysql:
+    image: mysql:5.6
+    container_name: tars-mysql
+    restart: always
+    networks:
+      tars:
+        ipv4_address: 172.25.0.2
+    ports:
+      - "13307:3306"          # 宿主机访问（与现有环境一致）
+    environment:
+      MYSQL_ROOT_PASSWORD: ${CMS_DB_PASS:-tars@root.2026}
+    volumes:
+      - /docker/tars/mysql/data:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  # ── TARS 框架：Web 管理平台 + 核心服务 ──
+  tars-framework:
+    image: tarscloud/framework:v3.0.15
+    container_name: tars-framework
+    restart: always
+    depends_on:
+      tars-mysql:
+        condition: service_healthy
+    networks:
+      tars:
+        ipv4_address: 172.25.0.3
+    ports:
+      - "3000:3000"           # Web 管理平台
+    environment:
+      MYSQL_HOST: 172.25.0.2
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: ${CMS_DB_PASS:-tars@root.2026}
+      INET: eth0
+      REBUILD: "false"
+      SLAVE: "false"
+    volumes:
+      - /docker/tars/framework/data:/data/tars
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s      # 框架首次启动初始化 DB 需 30~60s
+
+  # ── 应用节点：tarsnode 托管 cms 三服务 ──
+  tars-node:
+    image: tarscloud/tars-node:stable
+    container_name: tars-node
+    restart: always
+    depends_on:
+      tars-framework:
+        condition: service_healthy
+    networks:
+      tars:
+        ipv4_address: 172.25.0.5
+    ports:
+      - "9000-9010:9000-9010"  # TarsWeb 节点端口
+    environment:
+      INET: eth0
+      WEB_HOST: http://172.25.0.3:3000
+    volumes:
+      - /docker/tars/node/data:/data/tars
+      - /etc/localtime:/etc/localtime:ro
+
+  # ── nginx：统一入口（宿主机 host 网络，直接听 8200/3003）──
+  # 注意：必须用 host 网络模式 —— 现有环境即如此。
+  # bridge 模式下无法复用宿主机 8200 端口（宿主机 nginx 已占其他端口）。
+  # host 模式下由内核路由到 tars 桥接网 172.25.0.5:8200。
+  tars-gateway-nginx:
+    image: nginx:1.24
+    container_name: tars-gateway-nginx
+    restart: always
+    network_mode: host
+    depends_on:
+      - tars-node
+    volumes:
+      - /docker/tars/gateway-nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/localtime:/etc/localtime:ro

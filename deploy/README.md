@@ -67,7 +67,28 @@ bash deploy/n10-fix-routes.sh --check # 只诊断不改动
 bash deploy/n11-test.sh               # 全栈测试套件（9 层）
 bash deploy/n12-health-monitor.sh --install  # 安装健康巡检 cron（每 5 分钟）
 bash deploy/n13-logrotate.sh --install       # 安装日志轮转 cron（每小时）
+bash deploy/n14-compose-deploy.sh     # Docker Compose 校验（全新机部署用）
 ```
+
+### 全新机器从零部署（Docker Compose 一键）
+
+现有环境的 4 个容器是用 `docker run` 起的，**不要在此机器上 `--up`**（会因 `container_name` 冲突失败）。全新机器从零部署：
+
+```bash
+# 1. 起基础设施（mysql + framework + node + nginx）
+docker compose -f deploy/docker-compose.yml up -d
+
+# 2. 等框架就绪（首次初始化 DB 需 30~60 秒）
+docker compose -f deploy/docker-compose.yml ps
+
+# 3. 发布 cms 业务服务到 tarsnode
+bash deploy/deploy.sh
+
+# 4. 自检
+bash deploy/n14-compose-deploy.sh
+```
+
+**compose 文件说明**：`deploy/docker-compose.yml` 定义 4 个服务（tars-mysql / tars-framework / tars-node / tars-gateway-nginx），复用 `/docker/tars/` 下现有数据目录，网络固定 `172.25.0.0/16`。tars-gateway-nginx 用 `network_mode: host` 以监听宿主机 8200 端口。
 
 ---
 
@@ -88,6 +109,29 @@ bash deploy/n13-logrotate.sh --install       # 安装日志轮转 cron（每小�
 | `n11-test.sh` | **测试套件**：9 层 30+ 断言（单元/端到端/契约/XSS/鉴权/上传/CORS） | 无（只读 + 临时测试数据） |
 | `n12-health-monitor.sh` | **健康巡检**：每 5 分钟，连续 3 次异常才告警；`--install`/`--uninstall` 管 cron | 4 HTTP + 3 服务状态 |
 | `n13-logrotate.sh` | **日志轮转**：>50M 归档并截断（gzip + 保留 7 份），`--install` 每小时 cron | 容器 tars-node 内 `app_log` |
+| `n14-compose-deploy.sh` | **Compose 校验/部署**：全新机一键起 4 容器；现有环境只校验不改动 | `docker-compose.yml` |
+
+---
+
+## 为什么业务服务不能做成独立镜像
+
+`cms.CmsServer` / `cms.CmsWeb` / `cms.CmsBff` **不是独立容器**，而是由 `tarsnode` 托管的进程（`not_tars` 模式）：
+
+| 约束 | 说明 |
+| --- | --- |
+| **心跳与状态** | tarsnode 定期上报 `t_server_conf.present_state`，脱离则平台显示离线 |
+| **PID 守护** | tarsnode 按 `process_id` 监控进程，异常自动拉起（见 `n08-fix-pid.sh`） |
+| **TARS 寻址** | 服务间靠 `cms.CmsServer.ArticleObj@tcp -h 172.25.0.5 -p 13101` 寻址，需注册到框架 |
+| **发布流程** | 二进制经 tarsnode 的 `/data/tars` 加载，不能挂载覆盖 |
+
+**结论**：把 cms 三服务做成独立镜像 = 放弃 TARS 框架本身（本项目正是教 TARS 的）。因此采用**分层交付**：
+
+```
+docker compose up -d        # 基础设施（可容器化，已完成）
+bash deploy/deploy.sh       # 业务服务（必须走 tarsnode 发布）
+```
+
+若确实需要"一条命令起全套"，可写一个 `cms-deploy` 一次性容器（挂载 `/var/run/docker.sock`，容器内跑 `deploy.sh`），但本质仍是调用同一套脚本，收益有限。
 
 ---
 
