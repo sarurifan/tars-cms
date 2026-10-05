@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "全部文章",
+  "usingComponents": {
+    "article-card": "/components/article-card/index"
+  }
+}

@@ -1,0 +1,100 @@
+/* pages/article/index.wxss — 文章详情样式 */
+.article-page {
+  padding: 24rpx;
+}
+
+/* 文章头部 */
+.article-header {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 32rpx 28rpx;
+  margin-bottom: 24rpx;
+}
+
+.article-badges {
+  display: flex;
+  gap: 10rpx;
+  margin-bottom: 16rpx;
+}
+
+.badge {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 6rpx;
+}
+
+.badge-top {
+  background: #fde8e8;
+  color: #e74c3c;
+}
+
+.badge-focus {
+  background: #e8f0fe;
+  color: #5778ff;
+}
+
+.badge-banner {
+  background: #fff4e6;
+  color: #e67e22;
+}
+
+.article-title {
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1.35;
+}
+
+.article-summary {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #7f8c8d;
+  line-height: 1.6;
+  padding-left: 16rpx;
+  border-left: 6rpx solid #5778ff;
+}
+
+.article-meta {
+  margin-top: 24rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  font-size: 22rpx;
+  color: #95a5a6;
+}
+
+/* 正文 */
+.article-body {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 32rpx 28rpx;
+  font-size: 28rpx;
+  line-height: 1.8;
+  color: #34495e;
+  word-break: break-all;
+}
+
+/* 底部操作 */
+.article-footer {
+  margin-top: 32rpx;
+  padding-bottom: 40rpx;
+  display: flex;
+  gap: 20rpx;
+}
+
+.btn-outline {
+  background: #ffffff;
+  color: #5778ff;
+  border: 2rpx solid #5778ff;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+}
+
+.btn-outline::after {
+  border: none;
+}
+
+.btn-home {
+  margin-top: 32rpx;
+  display: inline-block;
+}

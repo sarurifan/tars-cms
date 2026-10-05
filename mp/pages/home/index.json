@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "tars-cms",
+  "usingComponents": {
+    "banner": "/components/banner/index",
+    "article-card": "/components/article-card/index"
+  },
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
+}

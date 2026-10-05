@@ -1,0 +1,22 @@
+<!-- components/banner/index.wxml — 轮播图（对应 h5 H5Banner） -->
+<swiper
+  class="banner-swiper"
+  wx:if="{{banners.length > 0}}"
+  indicator-dots="{{true}}"
+  indicator-color="rgba(255,255,255,0.5)"
+  indicator-active-color="#ffffff"
+  autoplay="{{true}}"
+  interval="{{4000}}"
+  duration="{{500}}"
+  circular="{{true}}"
+>
+  <swiper-item wx:for="{{banners}}" wx:key="id" bindtap="onTap" data-id="{{item.id}}">
+    <view class="banner-item" style="background-image: url({{item.cover}})">
+      <view class="banner-mask"></view>
+      <view class="banner-text">
+        <view class="banner-title ellipsis-2">{{item.title}}</view>
+        <view class="banner-summary ellipsis" wx:if="{{item.summary}}">{{item.summary}}</view>
+      </view>
+    </view>
+  </swiper-item>
+</swiper>

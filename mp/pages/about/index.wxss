@@ -1,0 +1,164 @@
+/* pages/about/index.wxss — 关于项目样式 */
+.about-page {
+  padding: 24rpx;
+}
+
+/* Hero */
+.hero {
+  background: linear-gradient(135deg, #5778ff 0%, #7ba3ff 100%);
+  border-radius: 16rpx;
+  padding: 48rpx 32rpx;
+  margin-bottom: 24rpx;
+}
+
+.hero-title {
+  color: #ffffff;
+  font-size: 52rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+
+.hero-sub {
+  margin-top: 12rpx;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 26rpx;
+}
+
+.hero-tags {
+  margin-top: 24rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.tag {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  font-size: 22rpx;
+  padding: 4rpx 18rpx;
+  border-radius: 20rpx;
+}
+
+/* 卡片 */
+.card-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 16rpx;
+}
+
+.card-text {
+  font-size: 26rpx;
+  color: #5d6d7e;
+  line-height: 1.7;
+}
+
+/* 架构图 */
+.arch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 0;
+}
+
+.arch-line {
+  background: #f4f6f9;
+  color: #2c3e50;
+  font-size: 24rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 8rpx;
+  min-width: 420rpx;
+  text-align: center;
+}
+
+.arch-hl {
+  background: #e8f0fe;
+  color: #5778ff;
+  font-weight: 600;
+}
+
+.arch-arrow {
+  color: #b0b8c4;
+  font-size: 24rpx;
+}
+
+/* 服务清单 */
+.svc-row {
+  display: flex;
+  flex-direction: column;
+  padding: 14rpx 0;
+  border-bottom: 2rpx solid #f0f2f5;
+}
+
+.svc-row:last-child {
+  border-bottom: none;
+}
+
+.svc-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #5778ff;
+}
+
+.svc-desc {
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: #7f8c8d;
+}
+
+/* API 清单 */
+.api-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 12rpx 0;
+  border-bottom: 2rpx solid #f0f2f5;
+  flex-wrap: wrap;
+}
+
+.api-row:last-child {
+  border-bottom: none;
+}
+
+.api-method {
+  font-size: 20rpx;
+  background: #e8f0fe;
+  color: #5778ff;
+  padding: 2rpx 10rpx;
+  border-radius: 4rpx;
+  font-weight: 600;
+}
+
+.api-path {
+  font-size: 22rpx;
+  color: #2c3e50;
+  font-family: monospace;
+}
+
+.api-desc {
+  font-size: 22rpx;
+  color: #95a5a6;
+  width: 100%;
+}
+
+/* 代码块 */
+.code-block {
+  background: #2c3e50;
+  color: #a8e6cf;
+  font-size: 22rpx;
+  font-family: monospace;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 页脚 */
+.about-footer {
+  text-align: center;
+  padding: 40rpx 0;
+  font-size: 24rpx;
+  color: #7f8c8d;
+}

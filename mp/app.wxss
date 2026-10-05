@@ -1,0 +1,86 @@
+/* app.wxss — 全局样式（对应 h5/src/styles/base.css） */
+page {
+  /* 与 h5 主色保持一致（design/README.md 中的规范色） */
+  --brand-primary: #5778ff;
+  --brand-bg: #f6fcfe;
+  --text-main: #2c3e50;
+  --text-sub: #7f8c8d;
+  --text-muted: #95a5a6;
+  --border-color: #e9ecef;
+  --card-bg: #ffffff;
+  --chip-bg: #f0f2f5;
+  --success: #27ae60;
+
+  background: #f4f6f9;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+/* 通用容器 */
+.container {
+  padding: 24rpx;
+}
+
+/* 通用卡片 */
+.card {
+  background: var(--card-bg);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+/* 主按钮 */
+.btn-primary {
+  background: var(--brand-primary);
+  color: #ffffff;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  padding: 16rpx 40rpx;
+  border: none;
+  line-height: 1.5;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+/* 文本工具类 */
+.text-sub {
+  color: var(--text-sub);
+  font-size: 24rpx;
+}
+
+.text-muted {
+  color: var(--text-muted);
+  font-size: 22rpx;
+}
+
+/* 单行省略 */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 多行省略 */
+.ellipsis-2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 空状态 */
+.empty {
+  text-align: center;
+  padding: 80rpx 24rpx;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}

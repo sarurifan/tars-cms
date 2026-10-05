@@ -1,0 +1,50 @@
+<!-- pages/article/index.wxml — 文章详情（对应 h5 ArticlePage） -->
+<view class="article-page">
+
+  <view class="loading" wx:if="{{loading}}">
+    <text class="text-sub">加载文章…</text>
+  </view>
+
+  <block wx:elif="{{article}}">
+    <!-- 文章头部 -->
+    <view class="article-header">
+      <view class="article-badges" wx:if="{{article.is_top || article.is_focus || article.is_banner}}">
+        <text class="badge badge-top" wx:if="{{article.is_top}}">📌 置顶</text>
+        <text class="badge badge-focus" wx:if="{{article.is_focus}}">🎯 焦点</text>
+        <text class="badge badge-banner" wx:if="{{article.is_banner}}">🖼 轮播</text>
+      </view>
+
+      <view class="article-title">{{article.title}}</view>
+
+      <view class="article-summary" wx:if="{{article.summary}}">{{article.summary}}</view>
+
+      <view class="article-meta">
+        <text class="meta-item" wx:if="{{article.author && article.author.name}}">✍️ {{article.author.name}}</text>
+        <text class="meta-item" wx:if="{{article.source}}">📎 {{article.source}}</text>
+        <text class="meta-item">🕐 {{article.publish_at}}</text>
+        <text class="meta-item">👁 {{article.view_count}} 次阅读</text>
+      </view>
+    </view>
+
+    <!-- 正文（rich-text 渲染服务端已净化的 HTML） -->
+    <view class="article-body">
+      <rich-text nodes="{{article.content}}"></rich-text>
+    </view>
+
+    <!-- 底部操作 -->
+    <view class="article-footer">
+      <button class="btn-primary" bindtap="goHome">← 返回首页</button>
+      <button class="btn-outline" wx:if="{{article.category}}" bindtap="goCategory">
+        更多 {{article.category.name}} →
+      </button>
+    </view>
+  </block>
+
+  <!-- 空状态 -->
+  <view class="empty" wx:else>
+    <view class="empty-icon">🔍</view>
+    <view>文章不存在或已删除</view>
+    <view class="btn-primary btn-home" bindtap="goHome">返回首页</view>
+  </view>
+
+</view>

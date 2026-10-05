@@ -1,0 +1,61 @@
+<!-- pages/home/index.wxml — 首页（对应 h5 HomePage） -->
+<view class="home-page">
+
+  <!-- 顶部介绍条（演示项目说明） -->
+  <view class="intro-bar">
+    <view class="intro-title">tars-cms</view>
+    <view class="intro-desc">写给新手的 TARS 微服务实战项目 · 内容由 CMS 自身管理</view>
+  </view>
+
+  <!-- 轮播图 -->
+  <banner banners="{{home.banners}}" />
+
+  <!-- 分类快捷入口 -->
+  <view class="category-nav" wx:if="{{home.categories.length > 0}}">
+    <view
+      class="nav-chip"
+      wx:for="{{home.categories}}"
+      wx:key="id"
+      bindtap="goCategory"
+      data-slug="{{item.slug}}"
+    >
+      {{item.name}}
+    </view>
+  </view>
+
+  <!-- 置顶推荐 -->
+  <view class="section" wx:if="{{home.topArticles.length > 0}}">
+    <view class="section-head">
+      <text class="section-title">📌 置顶推荐</text>
+    </view>
+    <article-card wx:for="{{home.topArticles}}" wx:key="id" data="{{item}}" />
+  </view>
+
+  <!-- 焦点关注 -->
+  <view class="section" wx:if="{{home.focusArticles.length > 0}}">
+    <view class="section-head">
+      <text class="section-title">🎯 焦点关注</text>
+    </view>
+    <article-card wx:for="{{home.focusArticles}}" wx:key="id" data="{{item}}" />
+  </view>
+
+  <!-- 最新文章 -->
+  <view class="section">
+    <view class="section-head">
+      <text class="section-title">🕐 最新文章</text>
+      <text class="section-more" bindtap="goAllArticles">全部 ›</text>
+    </view>
+
+    <view class="loading" wx:if="{{loading}}">
+      <text class="text-sub">加载中…</text>
+    </view>
+
+    <view class="empty" wx:elif="{{home.latest.length === 0}}">
+      <view class="empty-icon">📄</view>
+      <view>暂无文章</view>
+    </view>
+
+    <article-card wx:else wx:for="{{home.latest}}" wx:key="id" data="{{item}}" />
+  </view>
+
+</view>

@@ -1,0 +1,44 @@
+<!-- pages/category/index.wxml — 分类页（对应 h5 CategoryPage） -->
+<view class="category-page">
+
+  <!-- 分类筛选 -->
+  <scroll-view class="category-filter" scroll-x="true" show-scrollbar="{{false}}">
+    <view
+      class="filter-chip {{currentSlug === '' ? 'active' : ''}}"
+      bindtap="onFilter"
+      data-slug=""
+    >全部</view>
+    <view
+      class="filter-chip {{currentSlug === item.slug ? 'active' : ''}}"
+      wx:for="{{categories}}"
+      wx:key="id"
+      bindtap="onFilter"
+      data-slug="{{item.slug}}"
+    >{{item.name}}</view>
+  </scroll-view>
+
+  <!-- 加载 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text class="text-sub">加载文章…</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty" wx:elif="{{list.length === 0}}">
+    <view class="empty-icon">🔍</view>
+    <view>该分类暂无文章</view>
+    <view class="btn-primary btn-home" bindtap="goHome">返回首页</view>
+  </view>
+
+  <!-- 文章列表 -->
+  <view class="article-list" wx:else>
+    <article-card wx:for="{{list}}" wx:key="id" data="{{item}}" />
+  </view>
+
+  <!-- 分页 -->
+  <view class="pagination" wx:if="{{total > size}}">
+    <button class="btn-page" disabled="{{page <= 1}}" bindtap="prevPage">上一页</button>
+    <text class="page-info">{{page}} / {{totalPages}}</text>
+    <button class="btn-page" disabled="{{page * size >= total}}" bindtap="nextPage">下一页</button>
+  </view>
+
+</view>

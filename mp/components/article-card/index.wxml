@@ -1,0 +1,28 @@
+<!-- components/article-card/index.wxml — 文章卡片（对应 h5 H5ArticleCard） -->
+<view class="article-card" bindtap="onTap">
+  <!-- 封面图（无图时显示占位色块） -->
+  <view class="card-cover" wx:if="{{data.cover}}" style="background-image: url({{data.cover}})">
+    <view class="cover-mask"></view>
+  </view>
+  <view class="card-cover card-cover-placeholder" wx:else>
+    <text class="cover-text">{{data.category ? data.category.name : 'TARS'}}</text>
+  </view>
+
+  <!-- 内容区 -->
+  <view class="card-body">
+    <view class="card-badges" wx:if="{{data.is_top || data.is_focus}}">
+      <text class="badge badge-top" wx:if="{{data.is_top}}">置顶</text>
+      <text class="badge badge-focus" wx:if="{{data.is_focus}}">焦点</text>
+    </view>
+
+    <view class="card-title ellipsis-2">{{data.title}}</view>
+
+    <view class="card-summary ellipsis" wx:if="{{data.summary}}">{{data.summary}}</view>
+
+    <view class="card-meta">
+      <text class="meta-cat" wx:if="{{data.category}}">{{data.category.name}}</text>
+      <text class="meta-time">{{data.publish_at}}</text>
+      <text class="meta-views">👁 {{data.view_count}}</text>
+    </view>
+  </view>
+</view>

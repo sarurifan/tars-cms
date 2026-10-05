@@ -1,0 +1,78 @@
+<!-- pages/about/index.wxml — 关于项目（介绍页） -->
+<view class="about-page">
+
+  <!-- Hero -->
+  <view class="hero">
+    <view class="hero-title">tars-cms</view>
+    <view class="hero-sub">写给新手的 TARS 微服务实战项目</view>
+    <view class="hero-tags">
+      <text class="tag">TARS</text>
+      <text class="tag">Go</text>
+      <text class="tag">Vue 3</text>
+      <text class="tag">小程序</text>
+      <text class="tag">GPL-3.0</text>
+    </view>
+  </view>
+
+  <!-- 项目简介 -->
+  <view class="card">
+    <view class="card-title">📖 这是什么</view>
+    <view class="card-text">
+      用 TARS 从零搭一个能跑的内容管理系统。全部代码开源，包含服务端（Go）、
+      管理后台、H5 内容站与微信小程序。内容由 CMS 自身管理，可在后台编辑。
+    </view>
+  </view>
+
+  <!-- 架构 -->
+  <view class="card">
+    <view class="card-title">🏗 架构链路</view>
+    <view class="arch">
+      <view class="arch-line">小程序 / H5 / 管理后台</view>
+      <view class="arch-arrow">↓</view>
+      <view class="arch-line arch-hl">TarsGateway :8200</view>
+      <view class="arch-arrow">↓</view>
+      <view class="arch-line">BFF :3103 / :3203</view>
+      <view class="arch-arrow">↓</view>
+      <view class="arch-line arch-hl">cms / wx TARS 服务</view>
+      <view class="arch-arrow">↓</view>
+      <view class="arch-line">MySQL</view>
+    </view>
+  </view>
+
+  <!-- 服务清单 -->
+  <view class="card">
+    <view class="card-title">🧩 服务清单</view>
+    <view class="svc-row" wx:for="{{services}}" wx:key="name">
+      <view class="svc-name">{{item.name}}</view>
+      <view class="svc-desc">{{item.desc}}</view>
+    </view>
+  </view>
+
+  <!-- 微信节点能力 -->
+  <view class="card">
+    <view class="card-title">💬 微信节点能力</view>
+    <view class="card-text">
+      小程序登录、公众号消息、access_token 中控（统一刷新，防并发冲突）。
+    </view>
+    <view class="api-row" wx:for="{{wxApis}}" wx:key="path">
+      <text class="api-method">{{item.method}}</text>
+      <text class="api-path">{{item.path}}</text>
+      <text class="api-desc">{{item.desc}}</text>
+    </view>
+  </view>
+
+  <!-- 快速开始 -->
+  <view class="card">
+    <view class="card-title">🚀 本地跑起来</view>
+    <view class="code-block">cd 仓库根目录
+bash deploy/deploy.sh        # 一键部署
+bash deploy/n25-wx-test.sh   # 验证微信节点</view>
+  </view>
+
+  <!-- 页脚 -->
+  <view class="about-footer">
+    <view>内容由 tars-cms 自身管理</view>
+    <view class="text-muted">本页为演示项目介绍页</view>
+  </view>
+
+</view>
