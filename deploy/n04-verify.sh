@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# 加载部署环境变量（密码等凭据不硬编码在脚本里）
+# 加载部署环境变量 + 公共库
 _ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
 if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+_COMMON_SH="$(cd "$(dirname "$0")" && pwd)/common.sh"
+if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
 # ================================================================
 # n04-verify.sh — tars-cms 全链路验证（前端 → 网关 → BFF → TARS → MySQL）
 # ================================================================
@@ -10,19 +12,20 @@ if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
 #   2. 网关连通   TarsGateway(8200) Host: cms 路由生效
 #   3. 公开接口   /api/cms/home, categories, articles, articles/:id, config
 #   4. 认证接口   /api/auth/register, login, userinfo, logout
-#   5. 后台接口   /api/admin/articles, categories, members, media
+#   5. 后台接口   /api/admin/articles, categories, members, media（需登录 token）
 #
 # 用法: bash n04-verify.sh
 # ================================================================
 set -uo pipefail
 
-GW="http://192.168.1.95:8200"
+GW="${CMS_GATEWAY}"
 HOST_HDR="cms"
 PASS=0
 FAIL=0
+LOGIN_TOKEN=""   # 第 4 节登录成功后赋值，第 5 节后台接口复用
 
 mysql_q() {
-    docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e "$1" 2>/dev/null
+    docker exec "$CMS_MYSQL_CTN" mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e "$1" 2>/dev/null
 }
 
 assert_contains() {
@@ -38,7 +41,11 @@ assert_contains() {
     fi
 }
 
-gw_get()  { curl -s --max-time 8 -H "Host: $HOST_HDR" "$GW$1"; }
+gw_get()  {
+    local h_auth=()
+    [ -n "$LOGIN_TOKEN" ] && h_auth=(-H "Authorization: Bearer $LOGIN_TOKEN")
+    curl -s --max-time 8 -H "Host: $HOST_HDR" "${h_auth[@]}" "$GW$1"
+}
 gw_post() { curl -s --max-time 8 -X POST -H "Host: $HOST_HDR" -H "Content-Type: application/json" -d "$2" "$GW$1"; }
 
 echo "================================================"
@@ -92,7 +99,16 @@ RC=$(gw_post '/api/auth/login' '{"tenantId":1,"username":"admin","password":"adm
 assert_contains "POST /api/auth/login         登录 admin" "$RC" '"role":"admin"'
 
 TOKEN=$(echo "$RC" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('token',''))" 2>/dev/null)
+LOGIN_TOKEN="$TOKEN"   # 给后台接口和 userinfo 用
 if [ -n "$TOKEN" ]; then
+    # ---- 后台管理接口（必须用未登出的 token）----
+    echo "[5/5] 后台管理接口（admin token）"
+    assert_contains "GET  /api/admin/articles      后台文章列表" "$(gw_get '/api/admin/articles?tenantId=1&page=1&size=5')" '"total"'
+    assert_contains "GET  /api/admin/categories    后台分类列表" "$(gw_get '/api/admin/categories?tenantId=1' )" '快速开始'
+    assert_contains "GET  /api/admin/members       成员列表"     "$(gw_get '/api/admin/members?tenantId=1')" '"code":0'
+    assert_contains "GET  /api/admin/media         媒体列表"     "$(gw_get '/api/admin/media?tenantId=1&page=1&size=5')" '"code":0'
+    echo ""
+
     RC=$(curl -s --max-time 8 -H "Host: $HOST_HDR" -H "Authorization: Bearer $TOKEN" \
          "$GW/api/auth/userinfo?tenantId=1")
     assert_contains "GET  /api/auth/userinfo      用户信息" "$RC" '"username":"admin"'
@@ -101,17 +117,9 @@ if [ -n "$TOKEN" ]; then
          "$GW/api/auth/logout?tenantId=1")
     assert_contains "POST /api/auth/logout        登出"     "$RC" '"code":0'
 else
-    echo "  ⚠️  登录未拿到 token，跳过 userinfo/logout"
+    echo "  ⚠️  登录未拿到 token，跳过后台接口/userinfo/logout"
     FAIL=$((FAIL + 2))
 fi
-echo ""
-
-# ---------- 5. 后台接口 ----------
-echo "[5/5] 后台管理接口"
-assert_contains "GET  /api/admin/articles      后台文章列表" "$(gw_get '/api/admin/articles?tenantId=1&page=1&size=5')" '"total"'
-assert_contains "GET  /api/admin/categories    后台分类列表" "$(gw_get '/api/admin/categories?tenantId=1')"            '快速开始'
-assert_contains "GET  /api/admin/members       成员列表"     "$(gw_get '/api/admin/members?tenantId=1')"               '"code":0'
-assert_contains "GET  /api/admin/media         媒体列表"     "$(gw_get '/api/admin/media?tenantId=1&page=1&size=5')"   '"code":0'
 echo ""
 
 # ---------- 汇总 ----------

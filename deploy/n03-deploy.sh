@@ -21,9 +21,11 @@ set -euo pipefail
 # 加载部署环境变量（密码等凭据不硬编码在脚本里）
 _ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
 if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+_COMMON_SH="$(cd "$(dirname "$0")" && pwd)/common.sh"
+if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
 
-PKG="/docker/tars/build/tars-cms/CmsServer.tgz"
-TOKEN=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2)
+PKG="$CMS_BUILD_DIR/CmsServer.tgz"
+TOKEN=$(require_ticket)
 API="http://127.0.0.1:3000/pages/server/api"
 MYSQL="docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars"
 

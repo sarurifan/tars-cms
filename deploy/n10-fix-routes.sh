@@ -25,6 +25,8 @@ set -euo pipefail
 # 加载部署环境变量（密码等凭据不硬编码在脚本里）
 _ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
 if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+_COMMON_SH="$(cd "$(dirname "$0")" && pwd)/common.sh"
+if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
 
 CHECK_ONLY=0
 [[ "${1:-}" == "--check" ]] && CHECK_ONLY=1
@@ -103,7 +105,7 @@ else
 
   # ── 4. 重启网关 ──
   echo "[4/4] 重启 GatewayServer 加载新路由"
-  TOKEN=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2)
+  TOKEN=$(require_ticket)
   GW_SID=$(docker exec tars-mysql mysql -uroot -p"$MYSQL_PASS" db_tars -sN -e \
     "SELECT id FROM t_server_conf WHERE application='Base' AND server_name='GatewayServer';" 2>/dev/null)
   docker exec tars-framework curl -s --max-time 30 -X POST \
@@ -118,7 +120,7 @@ fi
 echo "================================================"
 echo "  端到端验证 (Host: cms)"
 echo "================================================"
-GW="http://192.168.1.95:8200"
+GW="${CMS_GATEWAY}"
 FAIL=0
 for path in "/" "/admin/" "/api/cms/home?tenantId=1"; do
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 -H "Host: cms" "$GW$path" || echo 000)

@@ -117,7 +117,7 @@ run n10-fix-routes.sh     "诊断并修正网关路由（防服务迁移残留�
 
 # ── 最终验证 ──
 step "最终验证"
-GW="http://192.168.1.95:8200"
+GW="${CMS_GATEWAY}"
 for p in "/" "/admin/" "/api/cms/home?tenantId=1"; do
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$GW$p")
   if [[ "$code" == "200" ]]; then

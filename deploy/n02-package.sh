@@ -8,8 +8,14 @@
 #   └── tars_stop.sh         # 停止脚本
 set -euo pipefail
 
+# 加载部署环境变量 + 公共库（BUILD_DIR/TOKEN/IP 统一走 env.sh/common.sh）
+_ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
+if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+_COMMON_SH="$(cd "$(dirname "$0")" && pwd)/common.sh"
+if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
+
 SRC="$(cd "$(dirname "$0")/../cms" && pwd)"
-BUILD_DIR="/docker/tars/build/tars-cms"
+BUILD_DIR="$CMS_BUILD_DIR"
 PKG_DIR="$BUILD_DIR/pkg/CmsServer"
 BIN_NAME="CmsServer"
 PKG_NAME="CmsServer.tgz"

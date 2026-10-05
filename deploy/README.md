@@ -27,13 +27,17 @@ bash deploy/deploy.sh --skip n02   # 跳过 n02 编译（复用已有包）
 | Go 1.21+ | 编译 `cms/`、`web/`、`gateway/bff/` 三个 Go 服务 |
 | Node.js 18+ | 编译 `h5/`、`admin/` 前端 |
 
-**本环境实测参数**（脚本内已硬编码，换环境需改）：
+**本环境实测参数**（均可通过 `deploy/env.sh` 覆盖，默认值如下）：
 
 ```
-tars-mysql      root 密码 tars@root.2026   （容器 IP 172.25.0.2）
-tars-node       节点 IP 172.25.0.5
+tars-mysql      root 密码（env.sh 的 CMS_DB_PASS）  容器 IP 172.25.0.2
+tars-node       节点 IP 172.25.0.5（CMS_NODE_IP，留空自动探测）
 tars-framework  Web 平台 127.0.0.1:3000
+网关            CMS_GATEWAY（留空自动取本机 IP:8200）
 ```
+
+> **干净机部署**：先 `cp deploy/env.sh.example deploy/env.sh` 改密码，再跑 `n00-get-token.sh` 拿 ticket。
+> 脚本内已**无硬编码 IP/密码**，全部收敛到 `env.sh` + `common.sh`。
 
 ---
 
@@ -41,6 +45,9 @@ tars-framework  Web 平台 127.0.0.1:3000
 
 ```bash
 cd /root/tars-cms
+
+# ── 干净机第 0 步（可选：自动获取/验证 ticket，写入 env.sh）──
+bash deploy/n00-get-token.sh
 
 # ── 基础（业务服务 + 数据）──
 bash deploy/n01-init-db.sh            # 建库建表 + 初始数据
@@ -96,6 +103,7 @@ bash deploy/n14-compose-deploy.sh
 
 | 脚本 | 作用 | 端口/产物 |
 | --- | --- | --- |
+| `n00-get-token.sh` | **获取 ticket**：优先 env.sh > 自动登录 > c03 回退；写入 env.sh | ticket |
 | `n01-init-db.sh` | 建 `tars_cms` 库、建表、插入示例文章与分类 | MySQL 13307 |
 | `n02-package.sh` | `CGO_ENABLED=0` 静态编译 → 打扁平 tgz | `CmsServer.tgz` |
 | `n03-deploy.sh` | 注册 `t_server_conf`/`t_adapter_conf` → 上传 → 发布 | `cms.CmsServer` |

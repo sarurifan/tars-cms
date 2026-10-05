@@ -64,7 +64,8 @@ check() {
   fi
 
   banner "4. compose 依赖的前置目录"
-  for d in /docker/tars/mysql/data /docker/tars/framework/data /docker/tars/node/data /docker/tars/gateway-nginx; do
+  local base="${CMS_BASE_DIR:-/docker/tars}"
+  for d in "$base/mysql/data" "$base/framework/data" "$base/node/data" "$base/gateway-nginx"; do
     if [ -e "$d" ]; then
       echo "  ✅ $d"
     else
