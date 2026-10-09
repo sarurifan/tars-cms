@@ -104,10 +104,10 @@ echo "=== 3. 兜底：读 c03-deploy-chisha.sh ==="
 if [ -f /docker/tars/scripts/c03-deploy-chisha.sh ]; then
   TICKET=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2)
   if [ -n "$TICKET" ]; then
-    # 测试有效性（严格校验：必须 ret_code=200，与 step1 一致；仅字段存在不算数）
+    # 测试有效性：用 getUidByTicket（server_list 缺 tree_node_id 恒 500，会把有效 ticket 误判为失效）
     RC=$(docker exec tars-framework curl -s --max-time 5 \
-      "$WEB/server_list?ticket=$TICKET" 2>&1)
-    if echo "$RC" | grep -q '"ret_code":200'; then
+      "$WEB/getUidByTicket?ticket=$TICKET" 2>&1)
+    if echo "$RC" | grep -qE '"uid":"[^"]+"'; then
       warn "从 c03-deploy-chisha.sh 读取到 ticket"
       warn "建议手动填入 env.sh 的 TARS_TICKET"
       # 仍写入 env.sh（下次直接用）
