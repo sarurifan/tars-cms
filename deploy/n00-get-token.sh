@@ -5,6 +5,15 @@
 # 用法:
 #   bash deploy/n00-get-token.sh
 #   bash deploy/n00-get-token.sh --user admin --pass <密码>
+#   TARS_USER=admin TARS_PASS=<密码> bash deploy/n00-get-token.sh
+#
+# 账号密码来源（优先级从高到低）:
+#   1. --user/--pass 命令行参数
+#   2. 环境变量 TARS_USER/TARS_PASS（export 或 env 前缀传入）
+#   3. env.sh 里的 export TARS_USER/TARS_PASS（见 env.sh.example）
+#   4. 默认 admin/admin123
+# 注：env.sh 的值会被 2 覆盖（脚本 source env.sh 在参数解析前），
+#     即 shell/命令行显式传入优先于 env.sh 文件内配置。
 #
 # 原理:
 #   1. 优先读 env.sh 里的 TARS_TICKET（用户手动填或已自动获取）
@@ -17,7 +26,9 @@ set -euo pipefail
 _ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
 if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
 
-# 参数解析
+# 参数解析（账号密码：--user/--pass > 环境变量 TARS_USER/TARS_PASS > env.sh > 默认 admin/admin123）
+# 注：env.sh 已在上方 source，若用户在 env.sh 里 export TARS_USER/TARS_PASS，
+#     且命令行/环境未显式传值，则会采用 env.sh 的值；显式传值则覆盖 env.sh。
 TARS_USER="${TARS_USER:-admin}"
 TARS_PASS="${TARS_PASS:-admin123}"
 for a in "$@"; do
@@ -43,10 +54,10 @@ WEB="http://127.0.0.1:3000/pages/server/api"
 
 echo "=== 1. 检查已有 TARS_TICKET ==="
 if [ -n "${TARS_TICKET:-}" ]; then
-  # 测试有效性
+  # 测试有效性：用 validate 接口（server_list 需要 tree_node_id，缺参会恒 500，会把有效 ticket 误判为失效）
   RC=$(docker exec tars-framework curl -s --max-time 5 \
-    "$WEB/server_list?ticket=${TARS_TICKET}" 2>&1)
-  if echo "$RC" | grep -q '"ret_code":200'; then
+    "$WEB/validate?ticket=${TARS_TICKET}&uid=${TARS_USER}" 2>&1)
+  if echo "$RC" | grep -q '"result":true'; then
     ok "env.sh 里的 TARS_TICKET 有效"
     exit 0
   else
@@ -64,7 +75,6 @@ RC=$(docker exec tars-framework curl -s --max-time 8 \
   -H 'Content-Type: application/json' \
   -d "{\"uid\":\"$TARS_USER\",\"password\":\"$TARS_PASS\"}" 2>&1)
 echo "  登录响应: $(echo "$RC" | head -c 200)"
-
 TICKET=$(echo "$RC" | python3 -c "import json,sys
 try:
     d=json.load(sys.stdin)
@@ -84,14 +94,20 @@ if [ -n "$TICKET" ]; then
   exit 0
 fi
 
+# 显式传了账号/密码但登录失败（如密码错误）：显式警告，防止后续兜底掩盖问题
+if echo "$RC" | grep -q '"ret_code":500' || echo "$RC" | grep -q 'passwordNoCorrect\|密码错误'; then
+  warn "TarsWeb 自动登录失败（账号 $TARS_USER 的密码被拒绝）"
+  warn "若你通过 env/--pass 传了新密码，请确认它与 TarsWeb 当前密码一致"
+fi
+
 echo "=== 3. 兜底：读 c03-deploy-chisha.sh ==="
 if [ -f /docker/tars/scripts/c03-deploy-chisha.sh ]; then
   TICKET=$(grep "^TOKEN=" /docker/tars/scripts/c03-deploy-chisha.sh | cut -d'"' -f2)
   if [ -n "$TICKET" ]; then
-    # 测试有效性
+    # 测试有效性（严格校验：必须 ret_code=200，与 step1 一致；仅字段存在不算数）
     RC=$(docker exec tars-framework curl -s --max-time 5 \
       "$WEB/server_list?ticket=$TICKET" 2>&1)
-    if echo "$RC" | grep -q '"ret_code"'; then
+    if echo "$RC" | grep -q '"ret_code":200'; then
       warn "从 c03-deploy-chisha.sh 读取到 ticket"
       warn "建议手动填入 env.sh 的 TARS_TICKET"
       # 仍写入 env.sh（下次直接用）

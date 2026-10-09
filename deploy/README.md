@@ -38,6 +38,10 @@ tars-framework  Web 平台 127.0.0.1:3000
 
 > **干净机部署**：先 `cp deploy/env.sh.example deploy/env.sh` 改密码，再跑 `n00-get-token.sh` 拿 ticket。
 > 脚本内已**无硬编码 IP/密码**，全部收敛到 `env.sh` + `common.sh`。
+>
+> **自动登录账号密码（n00-get-token.sh）**：支持 env 传账号密码，优先级：
+> `--user/--pass` 参数 > 环境变量 `TARS_USER/TARS_PASS` > `env.sh` 配置 > 默认 `admin/admin123`。
+> 如密码不是默认值，在 `env.sh` 里改 `export TARS_PASS=<密码>`（或临时用 `TARS_PASS=<密码> bash deploy/n00-get-token.sh`）。
 
 ---
 
