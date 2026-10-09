@@ -16,6 +16,13 @@ export CMS_BASE_DIR="${CMS_BASE_DIR:-/docker/tars}"
 export CMS_BUILD_DIR="${CMS_BUILD_DIR:-$CMS_BASE_DIR/build/tars-cms}"
 export CMS_SCRIPTS_DIR="${CMS_SCRIPTS_DIR:-$CMS_BASE_DIR/scripts}"
 
+# ── 仓库根目录（common.sh 位于 deploy/，父目录即仓库根）──
+# 用于替代脚本里的硬编码 /root/tars-cms（换机/换路径自动适配）
+_CMS_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -n "${_CMS_COMMON_DIR:-}" ]; then
+  export CMS_REPO_DIR="${CMS_REPO_DIR:-$(cd "$_CMS_COMMON_DIR/.." && pwd)}"
+fi
+
 # ── 网络 ──
 # CMS_GATEWAY 优先（env.sh 可配）；否则按本机 IP 拼
 if [ -z "${CMS_GATEWAY:-}" ]; then

@@ -83,8 +83,8 @@ echo "  /api/ 路由保持 → BFF (3103)"
 echo ""
 echo "[4/4] 重启 GatewayServer"
 TOKEN=$(require_ticket)
-GW_SID=$(mysql_q2="SELECT id FROM t_server_conf WHERE application='Base' AND server_name='GatewayServer';"
-docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e "$mysql_q2" 2>/dev/null)
+GW_SID=$(docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e \
+    "SELECT id FROM t_server_conf WHERE application='Base' AND server_name='GatewayServer';" 2>/dev/null)
 curl -s --max-time 30 -X POST \
     "http://127.0.0.1:3000/pages/server/api/add_task?ticket=$TOKEN" \
     -H "Content-Type: application/json" \

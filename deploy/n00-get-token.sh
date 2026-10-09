@@ -55,19 +55,22 @@ if [ -n "${TARS_TICKET:-}" ]; then
 fi
 
 echo "=== 2. 尝试自动登录 TarsWeb ==="
-# TarsWeb 登录接口路径不确定，尝试几个常见端点
-RC=""
-for path in login auth_login; do
-  RC=$(docker exec tars-framework curl -s --max-time 5 \
-    -X POST "$WEB/$path" \
-    -H 'Content-Type: application/json' \
-    -d "{\"username\":\"$TARS_USER\",\"password\":\"$TARS_PASS\"}" 2>&1)
-  if echo "$RC" | grep -q '"ticket"\|"ret_code":200'; then
-    break
-  fi
-done
+# 真实端点（已在 framework v3.0.15 实测）：
+#   POST /pages/server/api/login  body: {"uid":"<用户>","password":"<密码>"}
+#   返回: {"data":{"ticket":"<值>"},"ret_code":200}
+# 注意：参数名是 uid（不是 username）；captcha 缺省时该版本不强制
+RC=$(docker exec tars-framework curl -s --max-time 8 \
+  -X POST "$WEB/login" \
+  -H 'Content-Type: application/json' \
+  -d "{\"uid\":\"$TARS_USER\",\"password\":\"$TARS_PASS\"}" 2>&1)
+echo "  登录响应: $(echo "$RC" | head -c 200)"
 
-TICKET=$(echo "$RC" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('data',{}).get('ticket',''))" 2>/dev/null || true)
+TICKET=$(echo "$RC" | python3 -c "import json,sys
+try:
+    d=json.load(sys.stdin)
+    print(d.get('data',{}).get('ticket',''))
+except Exception:
+    print('')" 2>/dev/null || true)
 
 if [ -n "$TICKET" ]; then
   ok "自动登录成功"

@@ -3,8 +3,9 @@
 # n03-deploy.sh — 部署 cms.CmsServer 到 tarsnode（tars_go 服务）
 # ================================================================
 # 【端口规划】
-#   13101  adapter (protocol=tars) —— ArticleObj + AuthObj servant
-#   13102  adapter (protocol=http) —— 静态/媒体文件（可选）
+#   13101  adapter (protocol=tars) —— ArticleObj servant
+#   13102  adapter (protocol=tars) —— AuthObj servant
+#   （注意：两个 servant 端口必须不同，否则第二个 bind 冲突秒退）
 #
 # 【前提】
 #   1. /root/tars-cms/deploy/sql/init.sql 已执行（n01）
@@ -62,7 +63,7 @@ VALUES
      5, 'tcp -h $NODE -t 60000 -p 13101 -e 0', 100000, '',
      '$APP.$SVR.ArticleObj', 50000, 20000, NOW(), 'deploy', 'tars', ''),
     ('$APP', '$SVR', '$NODE', '$APP.$SVR.AuthObjAdapter', NOW(),
-     5, 'tcp -h $NODE -t 60000 -p 13101 -e 0', 100000, '',
+     5, 'tcp -h $NODE -t 60000 -p 13102 -e 0', 100000, '',
      '$APP.$SVR.AuthObj', 50000, 20000, NOW(), 'deploy', 'tars', '')
 ON DUPLICATE KEY UPDATE
     protocol='tars',

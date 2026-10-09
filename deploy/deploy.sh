@@ -104,6 +104,16 @@ if [[ "$FULL" == 1 ]]; then
 fi
 
 # ── 顺序执行 ──
+# 网关（可选，若 Base.GatewayServer 未部署则自动检测并部署）
+if skip "n15-gateway"; then
+    warn "跳过 n15-gateway（--skip 指定）"
+elif docker exec tars-node ss -tln 2>/dev/null | grep -q ':8200 ' && \
+     docker exec tars-node ss -tln 2>/dev/null | grep -q ':18212 '; then
+    warn "GatewayServer 已在运行（8200/18212），跳过部署"
+else
+    run n15-gateway.sh        "部署 TarsGateway（C++ 网关 + GatewayWeb）"
+fi
+
 run n01-init-db.sh        "初始化数据库（幂等）"
 run n02-package.sh        "编译打包 cms.CmsServer"
 run n03-deploy.sh         "部署 cms.CmsServer 到 tarsnode"
