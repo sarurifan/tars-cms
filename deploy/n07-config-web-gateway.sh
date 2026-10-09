@@ -20,7 +20,8 @@ if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
 _COMMON_SH="$(cd "$(dirname "$0")" && pwd)/common.sh"
 if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
 
-BASE="http://127.0.0.1:15535/plugins/base/gateway/api"
+BASE="http://127.0.0.1:15535/plugins/base/gateway/api"  # GatewayWeb 跑在 tars-framework 容器内
+BASE_CTN="${CMS_FW_CTN:-tars-framework}"  # 容器未映射 15535 到宿主机，须在容器内 curl
 GW_HTTP="${CMS_GATEWAY}"
 # BFF/CmsWeb 均由 tarsnode 托管，跑在 tars-node 容器网络内（非宿主机）。
 # 网关与 tarsnode 同网络，proxy_pass 必须写容器 IP，写宿主机 IP 会 HTTP 000。
@@ -29,8 +30,8 @@ NODE_IP="${CMS_NODE_IP:-$(docker inspect -f '{{range .NetworkSettings.Networks}}
 BFF="$NODE_IP:3103"
 CMSWEB="$NODE_IP:13103"
 
-post() { curl -s --max-time 10 -X POST "$1" -H "Content-Type: application/json" -d "$2"; }
-get()  { curl -s --max-time 10 "$1"; }
+post() { docker exec "$BASE_CTN" curl -s --max-time 10 -X POST "$1" -H "Content-Type: application/json" -d "$2"; }
+get()  { docker exec "$BASE_CTN" curl -s --max-time 10 "$1"; }
 
 echo "================================================"
 echo "  n07: 配置 cms 站网关路由（CmsWeb 静态 + BFF API）"

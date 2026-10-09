@@ -46,6 +46,14 @@ fi
 # ── TarsWeb 管理端地址（容器内访问）──
 export CMS_WEB_API="${CMS_WEB_API:-http://127.0.0.1:3000/pages/server/api}"
 
+# ── GatewayWebServer API 地址（动态路由管理）──
+# 自动探测 tars-framework 容器 IP；可用 CMS_GW_WEB_API 覆盖。
+if [ -z "${CMS_GW_WEB_API:-}" ]; then
+  _GW_FW_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${CMS_FW_CTN}" 2>/dev/null | head -1 || true)"
+  export CMS_GW_WEB_API="http://${_GW_FW_IP:-172.25.0.3}:${CMS_GW_WEB_PORT:-15535}/plugins/base/gateway/api"
+fi
+export CMS_GW_WEB_PORT="${CMS_GW_WEB_PORT:-15535}"
+
 # ── 日志函数（若调用方已定义则不覆盖）──
 if ! declare -F ok >/dev/null 2>&1; then
   C_GREEN=$'\033[32m'; C_YELLOW=$'\033[33m'; C_RED=$'\033[31m'; C_END=$'\033[0m'

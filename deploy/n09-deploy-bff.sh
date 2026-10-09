@@ -50,7 +50,7 @@ echo ""
 
 # ---------- [1/6] 编译 ----------
 echo "[1/6] 编译 BFF (CGO_ENABLED=0 静态)"
-cd /root/tars-cms/gateway/bff
+cd "$CMS_REPO_DIR/gateway/bff"
 CGO_ENABLED=0 go build -o /tmp/CmsBff .
 echo "  ✅ 编译成功: $(ls -lh /tmp/CmsBff | awk '{print $5}')"
 

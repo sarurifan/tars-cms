@@ -65,4 +65,4 @@ cd "$PKG_DIR"
 tar czf "$BUILD_DIR/$PKG_NAME" *
 
 echo "✔ 打包完成: $BUILD_DIR/$PKG_NAME"
-ls -lh "$BUILD_DIR/$PKG_NAME"
+ls -lh "$BUILD_DIR/$PKG_NAME" || true  # 展示用途

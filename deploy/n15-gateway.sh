@@ -97,13 +97,18 @@ do_build() {
     docker exec "$TARS_FW_CTN" mkdir -p /tmp/tarsgw
     docker cp "$GW_SRC_DIR/." "$TARS_FW_CTN:/tmp/tarsgw/"
 
-    # 重新生成 .h 适配 TarsCpp 3.x（如果 Verify.h 里有旧 API 就重新生成）
-    echo "  重新生成 Verify.h / FlowControl.h（tars2cpp）..."
+    # 源码已含生成好的 .h（v1.3.3 快照带），不覆盖。
+    # 仅当 .h 缺失（例如从零 clone）时才生成，避免 tars2cpp 新版覆盖已 patch 的有效头文件。
     docker exec "$TARS_FW_CTN" sh -c '
         cd /tmp/tarsgw/src
-        /usr/local/tars/cpp/tools/tars2cpp Verify.tars
-        /usr/local/tars/cpp/tools/tars2cpp FlowControl.tars
-    ' || warn "tars2cpp 已生成或失败（已 patch 的源码可忽略）"
+        if [ ! -f Verify.h ] || [ ! -f FlowControl.h ]; then
+            echo "缺失 .h，tars2cpp 生成..."
+            /usr/local/tars/cpp/tools/tars2cpp Verify.tars
+            /usr/local/tars/cpp/tools/tars2cpp FlowControl.tars
+        else
+            echo "源码已含 .h，跳过生成"
+        fi
+    '
 
     # 编译
     echo "  cmake + make GatewayServer..."
@@ -119,19 +124,81 @@ do_build() {
     docker cp "$TARS_FW_CTN:/tmp/tarsgw/build/GatewayServer.tgz" "$GW_BUILD_OUT/GatewayServer.tgz" 2>/dev/null || \
     docker cp "$TARS_FW_CTN:/tmp/tarsgw/build/bin/GatewayServer" "$GW_BUILD_OUT/GatewayServer.tgz" 2>/dev/null || true
 
-    if [ -f "$GW_BUILD_OUT/GatewayServer.tgz" ]; then
-        ok "编译成功: $(ls -lh "$GW_BUILD_OUT/GatewayServer.tgz" | awk '{print $5}')"
-    else
+    if [ ! -f "$GW_BUILD_OUT/GatewayServer.tgz" ]; then
         err "GatewayServer.tgz 未生成，检查编译日志"
         exit 1
     fi
+    ok "编译成功: $(ls -lh "$GW_BUILD_OUT/GatewayServer.tgz" | awk '{print $5}')"
 
-    # 复制 GatewayServer.conf 模板到 release 目录
+    # 注入 conf 到 tgz（自包含发布包）——GatewayServer 从 bin/ 读 conf，
+    # 发布时 tarsnode 会解包 tgz 覆盖 bin/，因此 conf 必须随包发布。
+    _inject_conf_into_tgz "$GW_BUILD_OUT/GatewayServer.tgz"
+
+    # release 物料归集（conf/sql 模板，供人工核对与 web 模式用）
+    # 官方 conf 模板在 conf/ 目录（注意官方文件名拼写为 GatwayServer.conf）
     mkdir -p "$GW_BUILD_OUT/release"
-    cp "$GW_SRC_DIR/install/GatewayServer.conf" "$GW_BUILD_OUT/release/" 2>/dev/null || true
-    cp "$GW_SRC_DIR/install/httpheader.conf"  "$GW_BUILD_OUT/release/" 2>/dev/null || true
-    cp "$GW_SRC_DIR/install/db_base.sql"      "$GW_BUILD_OUT/release/" 2>/dev/null || true
-    ok "release 物料已放入 $GW_BUILD_OUT/release/"
+    cp "$GW_SRC_DIR/conf/GatwayServer.conf"    "$GW_BUILD_OUT/release/GatewayServer.conf" 2>/dev/null || \
+       cp "$GW_SRC_DIR/conf/config.conf"       "$GW_BUILD_OUT/release/GatewayServer.conf" 2>/dev/null || \
+       warn "未找到 conf 模板（release/GatewayServer.conf 缺，tgz 内已有注入版）"
+    cp "$GW_SRC_DIR/conf/httpheader.conf"      "$GW_BUILD_OUT/release/httpheader.conf" 2>/dev/null || \
+       warn "未找到 httpheader.conf 模板"
+    cp "$GW_SRC_DIR/install/db_base.sql"       "$GW_BUILD_OUT/release/db_base.sql" 2>/dev/null || \
+       warn "未找到 db_base.sql"
+    ok "release 物料已放入 $GW_BUILD_OUT/release/（含注入版 conf 的 tgz）"
+}
+
+# 把 GatewayServer.conf + httpheader.conf 注入 tgz（生成指向 $DB 的 conf）
+_inject_conf_into_tgz() {
+    local tgz="$1"
+    local tmpd; tmpd="$(mktemp -d)"
+    tar xzf "$tgz" -C "$tmpd"
+    local pkgdir; pkgdir="$(ls "$tmpd")"   # 顶层目录 GatewayServer/
+
+    # GatewayServer.conf：db 段指向环境变量里的 DB
+    cat > "$tmpd/$pkgdir/GatewayServer.conf" << WCEOF
+<main>
+    filterheaders = X-GUID|X-XUA|Host
+    auto_proxy=1
+    flow_report_obj=Base.GatewayServer.FlowControlObj
+    <base>
+        rspsize=5242880
+        tup_host=
+        tup_path=/tup
+        json_path=/json
+        monitor_url=/monitor/monitor.html
+    </base>
+    <http_retcode>
+        inactive=2|6
+        timeout=1|3
+    </http_retcode>
+    <http_router>
+    </http_router>
+    <proxy>
+    </proxy>
+    <db>
+        charset=utf8
+        dbhost =$DB_HOST
+        dbname =db_base
+        dbpass =$DB_PASS
+        dbport =$DB_PORT
+        dbuser =$DB_USER
+    </db>
+</main>
+WCEOF
+
+    cat > "$tmpd/$pkgdir/httpheader.conf" << HHEOF
+<httprsp_headers>
+    <protocol_map>
+        tars-tars=application/x-tar
+        tars-tup=application/x-tup
+        tars-json=application/json
+    </protocol_map>
+</httprsp_headers>
+HHEOF
+
+    tar czf "$tgz" -C "$tmpd" "$pkgdir"
+    rm -rf "$tmpd"
+    ok "已注入 conf → tgz (dbhost=$DB_HOST, db_base)"
 }
 
 # ── 模式 2: 部署到平台（Base.GatewayServer）──
@@ -320,9 +387,17 @@ do_web() {
     docker exec "$TARS_FW_CTN" mkdir -p /opt/tarsgateway/web
     docker cp "$GW_SRC_DIR/web/." "$TARS_FW_CTN:/opt/tarsgateway/web/"
 
-    # 写入 webConf（DB 指向 tars-mysql 容器名，容器内可解析为 172.25.0.2）
-    echo "  写入 webConf.js（db_base → $DB_HOST:$DB_PORT）..."
-    docker exec "$TARS_FW_CTN" sh -c "cat > /opt/tarsgateway/web/src/config/webConf.js" << WCF
+    # 写入 webConf + config.json（宿主机生成，docker cp 进容器 ——
+    # 不用 heredoc 经 docker exec，因为 stdin 不透传进容器会导致文件为空）
+    echo "  写入 webConf.js + config.json（db_base → $DB_HOST:$DB_PORT）..."
+
+    # webConf.js：dbConf + localAuth 必须在文件顶层（db/index.js 与 loginMidware 在
+    # server.listen 前 require，此刻 webConf.dbConf/localAuth 必须已存在，
+    # 否则 dao 层 require 即崩 "Received undefined"、或鉴权 403 no auth。
+    # 注意：config.json 仅在 process.env.TARS_CONFIG 被 Object.assign 合并，
+    # 本地跑不会加载它 —— 所以这些字段必须写在 webConf.js 里。）
+    _WCF="/tmp/gw_webConf.js"
+    cat > "$_WCF" << WCF
 // Auto-generated by n15-gateway.sh
 const cwd = process.cwd();
 const path = require('path');
@@ -342,14 +417,18 @@ let conf = {
         charset: 'utf8',
         pool: { max: 10, min: 0, idle: 10000 }
     },
+    localAuth: {
+        localIp: ["127.0.0.1", "::1", "172.25.0.1", "172.25.0.2", "172.25.0.3", "172.25.0.5"]
+    },
     path: "/plugins/base/gateway"
 };
 
 module.exports = conf;
 WCF
+    docker cp "$_WCF" "$TARS_FW_CTN:/opt/tarsgateway/web/src/config/webConf.js"
 
-    # 写入 config.json（本地免登录 + locator）
-    docker exec "$TARS_FW_CTN" sh -c "cat > /opt/tarsgateway/web/src/config/config.json" << 'CFG'
+    _CFG="/tmp/gw_config.json"
+    cat > "$_CFG" << CFG
 {
     "tars": {
         "application": {
@@ -361,12 +440,21 @@ WCF
         "locator": "tars.tarsregistry.QueryObj@tcp -h 172.25.0.3 -p 17890",
         "nodejs": {"strictMode": false}
     },
-    "webConf": {
-        "localAuth": true,
-        "localIp": ["127.0.0.1", "::1", "172.25.0.1", "172.25.0.2", "172.25.0.3"]
+    "localAuth": {
+        "localIp": ["127.0.0.1", "::1", "172.25.0.1", "172.25.0.2", "172.25.0.3", "172.25.0.5"]
+    },
+    "dbConf": {
+        "host": "$DB_HOST",
+        "database": "db_base",
+        "port": "$DB_PORT",
+        "user": "$DB_USER",
+        "password": "$DB_PASS",
+        "charset": "utf8",
+        "pool": { "max": 10, "min": 0, "idle": 10000 }
     }
 }
 CFG
+    docker cp "$_CFG" "$TARS_FW_CTN:/opt/tarsgateway/web/src/config/config.json"
 
     # 安装依赖（容器内 npmmirror）
     echo "  安装 npm 依赖（容器内 npmmirror，需 1~2 分钟）..."
@@ -389,7 +477,7 @@ CFG
     '
     sleep 8
 
-    if ! docker exec "$TARS_FW_CTN" ss -tln 2>/dev/null | grep -q ":$GW_WEB_PORT"; then
+    if ! docker exec "$TARS_FW_CTN" sh -c 'netstat -tln 2>/dev/null | grep -q ":$GW_WEB_PORT" || ss -tln 2>/dev/null | grep -q ":$GW_WEB_PORT"'; then
         warn "  容器内端口 $GW_WEB_PORT 未监听，看日志:"
         docker exec "$TARS_FW_CTN" tail -20 /tmp/gateway-web.log
         exit 1
@@ -414,7 +502,7 @@ do_check() {
 
     if [ "$MODE" = "web" ]; then
         echo "  GatewayWebServer 端口 (容器内 :$GW_WEB_PORT):"
-        docker exec "$TARS_FW_CTN" ss -tln 2>/dev/null | grep ":$GW_WEB_PORT" | sed 's/^/    /' || warn "  未监听"
+        docker exec "$TARS_FW_CTN" sh -c 'netstat -tln 2>/dev/null | grep ":$GW_WEB_PORT" || ss -tln 2>/dev/null | grep ":$GW_WEB_PORT"' | sed 's/^/    /' || warn "  未监听"
     fi
 }
 

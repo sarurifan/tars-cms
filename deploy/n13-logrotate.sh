@@ -26,7 +26,7 @@ CONTAINER="tars-node"
 LOG_DIR="/usr/local/app/tars/app_log/cms"
 MAX_SIZE_MB="${MAX_SIZE_MB:-50}"
 KEEP="${KEEP:-7}"
-SELF="/root/tars-cms/deploy/n13-logrotate.sh"
+SELF="${CMS_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}/deploy/n13-logrotate.sh"
 MODE="${1:-rotate}"
 
 check_sizes() {
@@ -77,7 +77,7 @@ rotate() {
 
 install_cron() {
   (crontab -l 2>/dev/null | grep -v n13-logrotate
-   echo "0 * * * * $SELF >> /root/tars-cms/backup/logrotate.log 2>&1") | crontab -
+   echo "0 * * * * $SELF >> ${CMS_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}/backup/logrotate.log 2>&1") | crontab -
   echo "  ✅ cron 已安装（每小时）"
   crontab -l | grep n13-logrotate
 }

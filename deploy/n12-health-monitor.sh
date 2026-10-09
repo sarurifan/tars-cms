@@ -30,15 +30,15 @@ GW="${CMS_GATEWAY:-http://192.168.1.95:8200}"
 _ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
 [ -f "$_ENV_SH" ] && . "$_ENV_SH"
 DBPASS="${CMS_DB_PASS:-}"
-ALERT_LOG="/root/tars-cms/backup/health-alerts.log"
+ALERT_LOG="${CMS_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}/backup/health-alerts.log"
 FAIL_COUNT_FILE="/tmp/cms-health-fail-count"
-HEALTH_LOG="/root/tars-cms/backup/health-check.log"
+HEALTH_LOG="${CMS_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}/backup/health-check.log"
 
 mode="${1:-check}"
 
 install_cron() {
   (crontab -l 2>/dev/null | grep -v n12-health-monitor
-   echo "*/5 * * * * /root/tars-cms/deploy/n12-health-monitor.sh >> $HEALTH_LOG 2>&1") | crontab -
+   echo "*/5 * * * * ${CMS_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}/deploy/n12-health-monitor.sh >> $HEALTH_LOG 2>&1") | crontab -
   echo "✅ cron 已安装（每 5 分钟）"
   crontab -l | grep n12-health-monitor
 }

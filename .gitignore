@@ -71,3 +71,11 @@ app_log/
 screenshots/
 backup/
 deploy/env.sh
+
+# ---- release 产物（二进制不入库，README 说明如何生成）----
+release/**/GatewayServer
+release/**/*.tgz
+release/**/*.tar.gz
+release/**/*.zip
+!release/**/*.sql
+!release/**/*.conf

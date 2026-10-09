@@ -32,7 +32,7 @@ cd "$SRC"
 echo ""
 echo "[1/4] 编译二进制..."
 CGO_ENABLED=0 go build -ldflags="-s -w" -o "$PKG_DIR/$BIN_NAME" .
-ls -la "$PKG_DIR/$BIN_NAME"
+ls -la "$PKG_DIR/$BIN_NAME" || true   # 展示用途，避免环境级 ls 退出码触发 set -e
 
 # 2. 生成 tars_start.sh / tars_stop.sh（复用 AuthServer 三铁律模板）
 echo ""
@@ -74,7 +74,7 @@ chmod +x "$PKG_DIR/tars_start.sh" "$PKG_DIR/tars_stop.sh"
 echo ""
 echo "[3/4] 打包 $PKG_NAME ..."
 tar czf "$BUILD_DIR/$PKG_NAME" -C "$BUILD_DIR/pkg" CmsServer
-ls -la "$BUILD_DIR/$PKG_NAME"
+ls -la "$BUILD_DIR/$PKG_NAME" || true  # 展示用途
 
 echo ""
 echo "[4/4] 包内容："

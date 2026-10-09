@@ -23,7 +23,7 @@ set -e
 _ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
 if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
 
-SCRIPT_PATH="/root/tars-cms/deploy/n08-fix-pid.sh"
+SCRIPT_PATH="${CMS_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}/deploy/n08-fix-pid.sh"
 CRON_LINE="* * * * * /bin/bash $SCRIPT_PATH --sync >> /tmp/n08-cms-pid.log 2>&1"
 
 sync_service() {

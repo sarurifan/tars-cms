@@ -57,7 +57,7 @@ echo ""
 
 # ---------- [1/6] 编译 ----------
 echo "[1/6] 编译 CmsWeb (CGO_ENABLED=0 静态)"
-cd /root/tars-cms/web
+cd "$CMS_REPO_DIR/web"
 CGO_ENABLED=0 go build -o /tmp/CmsWeb .
 echo "  ✅ 编译成功: $(ls -lh /tmp/CmsWeb | awk '{print $5}')"
 
@@ -132,8 +132,8 @@ STOP
 chmod +x "$STAGE/tars_stop.sh"
 
 # 静态资源（h5/admin 构建产物）
-cp -r /root/tars-cms/h5/dist/. "$STAGE/data/h5/"
-cp -r /root/tars-cms/admin/dist/. "$STAGE/data/admin/"
+cp -r "$CMS_REPO_DIR/h5/dist/." "$STAGE/data/h5/"
+cp -r "$CMS_REPO_DIR/admin/dist/." "$STAGE/data/admin/"
 echo "  h5:     $(find "$STAGE/data/h5" -type f | wc -l) 个文件"
 echo "  admin:  $(find "$STAGE/data/admin" -type f | wc -l) 个文件"
 
