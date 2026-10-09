@@ -103,6 +103,21 @@ docker run --rm -v $PWD:/src -v /tmp/build-gateway.sh:/tmp/build-gateway.sh:ro \
 
 > 这三个补丁是 **v1.3.3 上游源码的缺陷修复**，不在上游 master（master 有更严重的 `getModuleName` 废弃 API 不兼容 TarsCpp 3.x）。
 
+## 已验证环境（2026-10-10）
+
+在 .95 实机（tars-framework v3.0.15 容器编译）完整验证：
+
+| 步骤 | 结果 |
+|------|------|
+| `bash deploy/n15-gateway.sh --build` | ✅ 编译成功 + conf 注入 tgz |
+| `bash deploy/n15-gateway.sh --web` | ✅ GatewayWeb 容器 15535 运行 + station_list 200 |
+| `bash deploy/n15-gateway.sh --check` | ✅ 8200/18212/15535 全部监听 |
+| `bash deploy/n05-config-gateway.sh` | ✅ 容器内 curl 15535 写路由，经网关 8200 访问 cms 全通 |
+| `bash deploy/n07-config-web-gateway.sh` | ✅ / /admin/ /uploads/ /api/ 路由验证 200 |
+
+> **环境坑**：若宿主机 `ls` 二进制异常（返回 255），脚本已改用 `find` 定位 tgz 顶层目录，
+> 不再依赖 `ls` 的退出码。
+
 ## 依赖清单
 
 | 组件 | 版本 | 说明 |

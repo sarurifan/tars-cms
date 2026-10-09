@@ -137,14 +137,32 @@ do_build() {
     # release 物料归集（conf/sql 模板，供人工核对与 web 模式用）
     # 官方 conf 模板在 conf/ 目录（注意官方文件名拼写为 GatwayServer.conf）
     mkdir -p "$GW_BUILD_OUT/release"
-    cp "$GW_SRC_DIR/conf/GatwayServer.conf"    "$GW_BUILD_OUT/release/GatewayServer.conf" 2>/dev/null || \
-       cp "$GW_SRC_DIR/conf/config.conf"       "$GW_BUILD_OUT/release/GatewayServer.conf" 2>/dev/null || \
-       warn "未找到 conf 模板（release/GatewayServer.conf 缺，tgz 内已有注入版）"
-    cp "$GW_SRC_DIR/conf/httpheader.conf"      "$GW_BUILD_OUT/release/httpheader.conf" 2>/dev/null || \
-       warn "未找到 httpheader.conf 模板"
+    # release 物料 = 与 tgz 内注入版一致（db 段指向环境变量，可直接用）；
+    # 不用官方占位符模板（db.tars.com/taf2015），避免用户部署到错误地址。
+    _rel="$(cd "$GW_BUILD_OUT/release" && pwd)"
+    if _extract_conf_from_tgz "$GW_BUILD_OUT/GatewayServer.tgz" "$_rel/GatewayServer.conf" "GatewayServer.conf" && \
+       _extract_conf_from_tgz "$GW_BUILD_OUT/GatewayServer.tgz" "$_rel/httpheader.conf" "httpheader.conf"; then
+        ok "release conf 从 tgz 注入版提取（db 段=环境变量，可直接用）"
+    else
+        warn "未能从 tgz 提取 conf（release 物料缺 conf，tgz 内仍有注入版）"
+    fi
     cp "$GW_SRC_DIR/install/db_base.sql"       "$GW_BUILD_OUT/release/db_base.sql" 2>/dev/null || \
        warn "未找到 db_base.sql"
     ok "release 物料已放入 $GW_BUILD_OUT/release/（含注入版 conf 的 tgz）"
+}
+
+# 从 tgz 提取指定文件到目标路径
+_extract_conf_from_tgz() {
+    local tgz="$1" dst="$2" member="$3"
+    local tmpd; tmpd="$(mktemp -d)"
+    tar xzf "$tgz" -C "$tmpd" 2>/dev/null || { rm -rf "$tmpd"; return 1; }
+    # 找 tgz 顶层目录下的文件
+    local found
+    found="$(find "$tmpd" -name "$(basename "$member")" -type f 2>/dev/null | head -1)"
+    [ -n "$found" ] || { rm -rf "$tmpd"; return 1; }
+    tr -d '\r' < "$found" > "$dst"
+    rm -rf "$tmpd"
+    return 0
 }
 
 # 把 GatewayServer.conf + httpheader.conf 注入 tgz（生成指向 $DB 的 conf）
@@ -152,7 +170,8 @@ _inject_conf_into_tgz() {
     local tgz="$1"
     local tmpd; tmpd="$(mktemp -d)"
     tar xzf "$tgz" -C "$tmpd"
-    local pkgdir; pkgdir="$(ls "$tmpd")"   # 顶层目录 GatewayServer/
+    # 顶层目录名（用 find 而非 ls——某些环境下 ls 异常返回非 0，且 find 对单顶层目录更稳）
+    local pkgdir; pkgdir="$(find "$tmpd" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | head -1)"
 
     # GatewayServer.conf：db 段指向环境变量里的 DB
     cat > "$tmpd/$pkgdir/GatewayServer.conf" << WCEOF
