@@ -28,7 +28,7 @@ if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
 PKG="$CMS_BUILD_DIR/CmsServer.tgz"
 TOKEN=$(require_ticket)
 API="http://127.0.0.1:3000/pages/server/api"
-MYSQL="docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars"
+MYSQL="docker exec -i tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars"
 
 if [ ! -f "$PKG" ]; then
     echo "❌ 找不到发布包: $PKG（先跑 n02-package.sh）" >&2
@@ -69,10 +69,16 @@ ON DUPLICATE KEY UPDATE
     protocol='tars',
     endpoint=VALUES(endpoint);
 SQL
-echo "   已注册"
 
 echo ""
-echo "=== 2. 验证注册 ==="
+echo "=== 2. 验证注册（失败即退出，防止假成功）==="
+REG_CHECK=$($MYSQL -sN -e \
+    "SELECT COUNT(*) FROM t_server_conf WHERE application='$APP' AND server_name='$SVR';" 2>/dev/null)
+if [ "${REG_CHECK:-0}" -ne 1 ]; then
+    echo "❌ 服务注册失败：t_server_conf 无记录（application='$APP', server_name='$SVR'）" >&2
+    exit 1
+fi
+echo "   服务已注册 ✔"
 $MYSQL -e "
     SELECT id, application, server_name, server_type, setting_state, node_name
     FROM t_server_conf WHERE application='$APP' AND server_name='$SVR';
@@ -95,6 +101,10 @@ echo ""
 echo "=== 4. 发布任务 ==="
 SID=$($MYSQL -sN -e \
     "SELECT id FROM t_server_conf WHERE application='$APP' AND server_name='$SVR';")
+if [ -z "${SID:-}" ]; then
+    echo "❌ 无法取得 server_id：t_server_conf 无记录（注册步骤失败？）" >&2
+    exit 1
+fi
 echo "   server_id=$SID"
 
 TASK_RSP=$(docker exec tars-framework curl -s -X POST "$API/add_task?ticket=$TOKEN" \

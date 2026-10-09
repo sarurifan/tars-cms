@@ -12,7 +12,7 @@ if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
 PKG="$CMS_BUILD_DIR/WxServer.tgz"
 TOKEN=$(require_ticket)
 API="$CMS_WEB_API"
-MYSQL="docker exec $CMS_MYSQL_CTN mysql -uroot -p${CMS_DB_PASS} db_tars"
+MYSQL="docker exec -i $CMS_MYSQL_CTN mysql -uroot -p${CMS_DB_PASS} db_tars"
 
 if [ ! -f "$PKG" ]; then
     err "找不到发布包: $PKG（先跑 n21-wx-package.sh）"
