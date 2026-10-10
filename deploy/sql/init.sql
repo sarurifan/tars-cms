@@ -239,11 +239,11 @@ FROM (
     UNION ALL SELECT 1, '用 tars_go 写第一个微服务', '从 IDL 定义到 tars2go 生成代码，再到 tars.Run() 跑起来，完整走一遍。', '实战教程', 1, 1, 0, 30, 'tutorial', '/uploads/banners/banner-4-go.jpg'
     UNION ALL SELECT 1, 'Docker 部署 TARS 框架', 'MySQL + framework + node 三个容器，10 分钟搭好一套 TARS 平台。', '部署运维', 1, 0, 1, 40, 'tutorial', '/uploads/banners/banner-5-docker.jpg'
     UNION ALL SELECT 1, 'TarsBenchmark 压测上手', '亲手测量你的服务 QPS 与延迟分位，验证微服务的真实性能。', '部署运维', 1, 0, 1, 50, 'tutorial', '/uploads/banners/banner-6-benchmark.jpg'
-    UNION ALL SELECT 1, 'TARS 心跳与存活探测机制', '为什么服务会被反复重启？tarsnode 到底怎么判断服务活着。', '部署运维', 0, 0, 0, 60, 'doc'
-    UNION ALL SELECT 1, '多语言服务如何互调', '同一个 IDL，Go / Java / C++ / Node.js 各生成一份代码，透明通信。', '核心概念', 0, 0, 0, 70, 'doc'
-    UNION ALL SELECT 1, '网关 HTTP 与 TARS RPC 协议转换', 'TarsGateway 如何把浏览器请求转成 TARS RPC 调用。', '核心概念', 0, 0, 0, 80, 'doc'
-    UNION ALL SELECT 1, '开源协议选择说明', '本项目采用 GNU GPL v3.0，为什么这样选，对使用者意味着什么。', '关于项目', 0, 0, 0, 90, 'doc'
-    UNION ALL SELECT 1, '项目路线图与参与方式', '已完成什么、在做什么、欢迎怎么参与。', '关于项目', 0, 0, 0, 100, 'doc'
+    UNION ALL SELECT 1, 'TARS 心跳与存活探测机制', '为什么服务会被反复重启？tarsnode 到底怎么判断服务活着。', '部署运维', 0, 0, 0, 60, 'doc', NULL
+    UNION ALL SELECT 1, '多语言服务如何互调', '同一个 IDL，Go / Java / C++ / Node.js 各生成一份代码，透明通信。', '核心概念', 0, 0, 0, 70, 'doc', NULL
+    UNION ALL SELECT 1, '网关 HTTP 与 TARS RPC 协议转换', 'TarsGateway 如何把浏览器请求转成 TARS RPC 调用。', '核心概念', 0, 0, 0, 80, 'doc', NULL
+    UNION ALL SELECT 1, '开源协议选择说明', '本项目采用 GNU GPL v3.0，为什么这样选，对使用者意味着什么。', '关于项目', 0, 0, 0, 90, 'doc', NULL
+    UNION ALL SELECT 1, '项目路线图与参与方式', '已完成什么、在做什么、欢迎怎么参与。', '关于项目', 0, 0, 0, 100, 'doc', NULL
 ) AS s
 WHERE NOT EXISTS (
     SELECT 1 FROM `cms_article` a
