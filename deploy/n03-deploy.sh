@@ -30,6 +30,10 @@ TOKEN=$(require_ticket)
 API="http://127.0.0.1:3000/pages/server/api"
 MYSQL="docker exec -i tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars"
 
+# 坑3：发布前先把运行环境写进 tars-node 的 /etc/profile.d/cms-env.sh
+# （CmsServer 的 tars_start.sh 依赖它取 CMS_DB_PASS，全新机上不存在会起不来）
+init_node_env
+
 if [ ! -f "$PKG" ]; then
     echo "❌ 找不到发布包: $PKG（先跑 n02-package.sh）" >&2
     exit 1
@@ -113,6 +117,11 @@ TASK_RSP=$(docker exec tars-framework curl -s -X POST "$API/add_task?ticket=$TOK
 TASK_NO=$(echo "$TASK_RSP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',''))")
 echo "   task_no=$TASK_NO"
 sleep 20
+
+# 坑2：patch_tars 显示成功不代表包真的解进了 bin/（全新机 tarsnode 有时不解压），
+# 校验 bin/ 有二进制；没有则从 BatchPatchingLoad 缓存手动解到 bin/ 再启动。
+echo "   校验 bin/ 发布文件..."
+ensure_pkg_extracted "cms.CmsServer" "CmsServer" "CmsServer"
 
 echo ""
 echo "=== 5. 启动 ==="

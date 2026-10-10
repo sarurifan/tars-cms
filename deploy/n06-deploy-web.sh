@@ -46,6 +46,10 @@ PKG="$BUILD_DIR/CmsWeb.tgz"
 TOKEN=$(require_ticket)
 API="http://127.0.0.1:3000/pages/server/api"
 
+# 坑3：发布前先确保 tars-node 容器里有 /etc/profile.d/cms-env.sh
+# （CmsWeb 包装脚本的 PID 守护靠它取 CMS_DB_PASS，全新机上缺失）
+init_node_env
+
 mysql_q() {
     docker exec tars-mysql mysql -uroot -p${CMS_DB_PASS} db_tars -sN -e "$1" 2>/dev/null
 }
@@ -209,6 +213,12 @@ echo "  task_no=$TASK_NO"
 
 echo "  等待启动 (15s)..."
 sleep 15
+
+# 坑2：patch_tars 成功不代表包解进了 bin/（全新机可能不解压），缺二进制则手动解包
+if ! ensure_pkg_extracted "cms.CmsWeb" "CmsWeb" "CmsWeb_bin"; then
+    err "坑2：cms.CmsWeb/bin 缺发布文件且补解失败，服务将无法启动（find server exe）" >&2
+    exit 1
+fi
 
 # ---------- PID 校正（not_tars 服务必需） ----------
 # tarsnode 对 not_tars 服务记录的 PID 是启动 shell 的 PID，与真实进程差 1-2，

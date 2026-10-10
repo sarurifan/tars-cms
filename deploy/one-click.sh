@@ -112,6 +112,10 @@ if [[ "$SKIP_TOKEN" == 0 ]]; then
   fi
 fi
 
+# 坑3：全新机在 tars-node 容器里先写 cms 运行环境（n03/n06/n09 各自也会做，这里提前兜底）
+step "init_node_env — 写入 tars-node:/etc/profile.d/cms-env.sh"
+init_node_env || warn "init_node_env 失败（容器未就绪？）后续 n03/n06/n09 会重试"
+
 # ── 部署网关（检测 or 强制）──
 GW_RUNNING=$(docker exec tars-node ss -tln 2>/dev/null | grep -q ':8200 ' && echo 1 || echo 0)
 if [[ "$WITH_GATEWAY" == 1 || "$GW_RUNNING" == 0 ]]; then

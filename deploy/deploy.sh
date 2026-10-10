@@ -75,6 +75,10 @@ docker inspect tars-framework >/dev/null 2>&1 || { err "tars-framework 容器不
 docker inspect tars-node >/dev/null 2>&1 || { err "tars-node 容器不存在"; exit 1; }
 ok "TARS 平台容器齐全 (tars-mysql/tars-framework/tars-node)"
 
+# 坑3：全局初始化 tars-node 容器内的 cms 运行环境（n03/n06/n09 各自也会调，这里兜底）
+step "init_node_env — 写入 tars-node:/etc/profile.d/cms-env.sh"
+init_node_env
+
 # ── 编排步骤 ──
 run() {
   local n="$1" desc="$2"
