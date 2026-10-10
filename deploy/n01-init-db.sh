@@ -39,4 +39,23 @@ docker exec tars-mysql mysql -u"${MYSQL_USER}" -p"${MYSQL_PASS}" \
     "
 
 echo ""
+# ---------------------------------------------------------------
+# 同步 banner 图片到 CmsWeb uploads 目录（tars-node 容器）
+# ---------------------------------------------------------------
+ASSETS_DIR="$(cd "$(dirname "$0")" && pwd)/assets/banners"
+if [ -d "$ASSETS_DIR" ] && docker ps --format "{{.Names}}" | grep -q "^tars-node$"; then
+    echo ""
+    echo "=== 同步 banner 图片到 tars-node:/data/tars/cms/uploads/banners/ ==="
+    docker exec tars-node mkdir -p /data/tars/cms/uploads/banners
+    for f in "$ASSETS_DIR"/*.jpg; do
+        [ -f "$f" ] || continue
+        bn=$(basename "$f")
+        docker cp "$f" "tars-node:/data/tars/cms/uploads/banners/$bn"
+        echo "  + $bn"
+    done
+    echo "✅ banner 图片同步完成"
+elif [ ! -d "$ASSETS_DIR" ]; then
+    echo "⚠️  未找到 banner 资产目录: $ASSETS_DIR"
+fi
+
 echo "✅ 数据库初始化完成"

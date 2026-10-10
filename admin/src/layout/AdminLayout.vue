@@ -3,6 +3,7 @@
     <!-- 顶部导航栏 -->
     <header class="layout-header">
       <div class="header-left">
+        <img src="/logo.png" alt="tars-cms" class="admin-logo-img" />
         <span class="logo-text">tars-cms</span>
         <span class="logo-sub">管理后台</span>
       </div>
@@ -74,6 +75,9 @@
       <!-- 主内容区 -->
       <main class="layout-content">
         <router-view />
+        <footer class="admin-footer">
+          <span>© 2026 tars-cms · designed by sarurifan@gmail.com</span>
+        </footer>
       </main>
     </div>
   </div>
@@ -166,4 +170,18 @@ function handleLogout() {
   padding: 20px;
   background: #f0f2f5;
 }
+
+.admin-logo-img {
+  height: 28px;
+  width: auto;
+  margin-right: 8px;
+}
+
+.admin-footer {
+  text-align: center;
+  padding: 24px 0 8px;
+  color: #909399;
+  font-size: 12px;
+}
+
 </style>

@@ -1,10 +1,10 @@
 /* tars-cms h5 — 全局基础样式（全新，不复用 admin） */
 
 :root {
-  /* 品牌色（h5 独立色板） */
-  --h5-primary: #1a73e8;
-  --h5-primary-dark: #1557b0;
-  --h5-primary-light: #e8f0fe;
+  /* 品牌色（h5 独立色板）— 默认: logo 红色主题 */
+  --h5-primary: #db261e;
+  --h5-primary-dark: #b81e17;
+  --h5-primary-light: #fdeded;
 
   /* 中性色 */
   --h5-text: #1f2329;
@@ -28,6 +28,14 @@
   --h5-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   --h5-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --h5-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+
+/* 备选主题：经典蓝（原默认） */
+:root[data-theme="blue"] {
+  --h5-primary: #1a73e8;
+  --h5-primary-dark: #1557b0;
+  --h5-primary-light: #e8f0fe;
 }
 
 * {

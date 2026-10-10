@@ -225,19 +225,20 @@ ON DUPLICATE KEY UPDATE `role` = 'admin';
 -- 幂等：同一租户下同标题文章已存在则跳过
 -- category_id 按分类名动态解析，不硬编码 id（跨环境安全）
 INSERT INTO `cms_article`
-    (`tenant_id`, `title`, `summary`, `category_id`, `is_banner`, `is_top`, `is_focus`, `sort`, `type`, `view_count`, `status`, `publish_at`)
+    (`tenant_id`, `title`, `summary`, `category_id`, `is_banner`, `is_top`, `is_focus`, `sort`, `type`, `view_count`, `status`, `publish_at`, `cover`)
 SELECT s.tenant_id, s.title, s.summary,
        (SELECT c.`id` FROM `cms_category` c
          WHERE c.`tenant_id` = s.tenant_id AND c.`name` = s.cat_name LIMIT 1) AS category_id,
-       s.is_banner, s.is_top, s.is_focus, s.sort, s.type, 0, 1, NOW()
+       s.is_banner, s.is_top, s.is_focus, s.sort, s.type, 0, 1, NOW(), s.cover
 FROM (
     SELECT 1 AS tenant_id, 'tars-cms 是什么' AS title,
-           '一个写给新手的大厂微服务实战项目，用 TARS 从零搭一个能跑的内容管理系统。' AS summary,
-           '快速开始' AS cat_name, 1 AS is_banner, 1 AS is_top, 1 AS is_focus, 10 AS sort, 'doc' AS type
-    UNION ALL SELECT 1, 'TARS 核心概念速览', 'App / Server / Servant 三层命名模型，理解 TARS 服务治理的起点。', '核心概念', 1, 1, 1, 20, 'doc'
-    UNION ALL SELECT 1, '用 tars_go 写第一个微服务', '从 IDL 定义到 tars2go 生成代码，再到 tars.Run() 跑起来，完整走一遍。', '实战教程', 1, 1, 0, 30, 'tutorial'
-    UNION ALL SELECT 1, 'Docker 部署 TARS 框架', 'MySQL + framework + node 三个容器，10 分钟搭好一套 TARS 平台。', '部署运维', 1, 0, 1, 40, 'tutorial'
-    UNION ALL SELECT 1, 'TarsBenchmark 压测上手', '亲手测量你的服务 QPS 与延迟分位，验证微服务的真实性能。', '部署运维', 1, 0, 1, 50, 'tutorial'
+           '一个写给新手的大厂微服务实战项目，用 TARS 从零搭一个能跑的内容管理系统——源自 Project-Nerv 项目拆出的 CMS 模块。' AS summary,
+           '快速开始' AS cat_name, 1 AS is_banner, 1 AS is_top, 1 AS is_focus, 10 AS sort, 'doc' AS type, '/uploads/banners/banner-1-intro.jpg' AS cover
+    UNION ALL SELECT 1, 'TARS 核心概念速览', 'App / Server / Servant 三层命名模型，理解 TARS 服务治理的起点。', '核心概念', 1, 1, 1, 20, 'doc', '/uploads/banners/banner-3-concept.jpg'
+    UNION ALL SELECT 1, '一键部署：零干预交付', 'one-click.sh 一条命令，从干净机到生产环境全程自动：建库、服务编排、网关路由、前端发布，全链路验证 17/17。', '部署运维', 1, 1, 1, 15, 'tutorial', '/uploads/banners/banner-2-oneclick.jpg'
+    UNION ALL SELECT 1, '用 tars_go 写第一个微服务', '从 IDL 定义到 tars2go 生成代码，再到 tars.Run() 跑起来，完整走一遍。', '实战教程', 1, 1, 0, 30, 'tutorial', '/uploads/banners/banner-4-go.jpg'
+    UNION ALL SELECT 1, 'Docker 部署 TARS 框架', 'MySQL + framework + node 三个容器，10 分钟搭好一套 TARS 平台。', '部署运维', 1, 0, 1, 40, 'tutorial', '/uploads/banners/banner-5-docker.jpg'
+    UNION ALL SELECT 1, 'TarsBenchmark 压测上手', '亲手测量你的服务 QPS 与延迟分位，验证微服务的真实性能。', '部署运维', 1, 0, 1, 50, 'tutorial', '/uploads/banners/banner-6-benchmark.jpg'
     UNION ALL SELECT 1, 'TARS 心跳与存活探测机制', '为什么服务会被反复重启？tarsnode 到底怎么判断服务活着。', '部署运维', 0, 0, 0, 60, 'doc'
     UNION ALL SELECT 1, '多语言服务如何互调', '同一个 IDL，Go / Java / C++ / Node.js 各生成一份代码，透明通信。', '核心概念', 0, 0, 0, 70, 'doc'
     UNION ALL SELECT 1, '网关 HTTP 与 TARS RPC 协议转换', 'TarsGateway 如何把浏览器请求转成 TARS RPC 调用。', '核心概念', 0, 0, 0, 80, 'doc'

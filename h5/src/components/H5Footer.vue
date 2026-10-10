@@ -4,7 +4,7 @@
       <div class="footer-top">
         <div class="footer-brand">
           <span class="brand-name">tars-cms</span>
-          <p class="brand-desc">一个写给新手的大厂微服务实战项目，用 TARS 从零搭一个能跑的内容管理系统。</p>
+          <p class="brand-desc">一个写给新手的大厂微服务实战项目，用 TARS 从零搭一个能跑的内容管理系统——源自 Project-Nerv 项目拆出的 CMS 模块。</p>
         </div>
         <div class="footer-links">
           <div class="link-group">
@@ -19,7 +19,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <span class="copyright">© {{ year }} tars-cms · GPL-3.0</span>
+        <span class="copyright">© {{ year }} tars-cms · GPL-3.0 · designed by sarurifan@gmail.com</span>
         <span class="powered">Powered by Tencent TARS</span>
       </div>
     </div>

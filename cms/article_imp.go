@@ -38,7 +38,7 @@ func (imp *articleServantImp) GetHome(ctx context.Context, tenantId int32) (stri
 	// 轮播图：is_banner=1
 	var banners []Article
 	db.Where("tenant_id = ? AND is_banner = 1 AND status = 1", tid).
-		Order("sort ASC, id DESC").Limit(5).Find(&banners)
+		Order("sort ASC, id DESC").Limit(6).Find(&banners)
 
 	// 置顶：is_top=1
 	var tops []Article

@@ -3,7 +3,7 @@
     <div class="header-inner">
       <!-- Logo -->
       <router-link to="/" class="header-logo">
-        <span class="logo-mark">tars-cms</span>
+        <img src="/logo.png" alt="tars-cms" class="logo-img" />
       </router-link>
 
       <!-- 主导航 -->
@@ -22,6 +22,10 @@
 
       <!-- 右侧 -->
       <div class="header-right">
+        <button class="theme-toggle" @click="toggleTheme" :title="theme === 'red' ? '切换为蓝色主题' : '切换为红色主题'">
+          <span class="theme-dot" :class="theme === 'red' ? 'dot-red' : 'dot-blue'"></span>
+          <span class="theme-label">{{ theme === 'red' ? '红' : '蓝' }}</span>
+        </button>
         <template v-if="isLogin">
           <span class="user-chip">{{ nickname }}</span>
           <button class="btn-logout" @click="handleLogout">退出</button>
@@ -42,9 +46,26 @@ import { getCategories, logout } from '@/api/content'
 const route = useRoute()
 const router = useRouter()
 const topCategories = ref<any[]>([])
-const nickname = ref('')
 
-const isLogin = computed(() => !!localStorage.getItem('h5_token'))
+const isLogin = ref(!!localStorage.getItem('h5_token'))
+const theme = ref(localStorage.getItem('h5_theme') || 'red')
+
+function applyTheme(t: string) {
+  document.documentElement.setAttribute('data-theme', t === 'blue' ? 'blue' : 'red')
+  localStorage.setItem('h5_theme', t)
+}
+function toggleTheme() {
+  theme.value = theme.value === 'red' ? 'blue' : 'red'
+  applyTheme(theme.value)
+}
+
+// 登录/退出时刷新状态（跨页面组件通信）
+function refreshAuth() {
+  isLogin.value = !!localStorage.getItem('h5_token')
+  loadUser()
+}
+window.addEventListener('auth-changed', refreshAuth)
+window.addEventListener('storage', refreshAuth)
 
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(path + '/')
@@ -61,6 +82,7 @@ async function fetchCategories() {
 }
 
 function loadUser() {
+  isLogin.value = !!localStorage.getItem('h5_token')
   try {
     const raw = localStorage.getItem('h5_user')
     if (raw) nickname.value = JSON.parse(raw).nickname || JSON.parse(raw).username || ''
@@ -73,10 +95,12 @@ async function handleLogout() {
   } catch (e) {}
   localStorage.removeItem('h5_token')
   localStorage.removeItem('h5_user')
+  window.dispatchEvent(new Event('auth-changed'))
   router.push('/login')
 }
 
 onMounted(() => {
+  applyTheme(theme.value)
   fetchCategories()
   loadUser()
 })
@@ -105,6 +129,7 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.logo-img { display: block; height: 28px; width: auto; }
 .logo-mark {
   font-size: 19px;
   font-weight: 800;
@@ -184,4 +209,30 @@ onMounted(() => {
   border-color: var(--h5-danger);
   color: var(--h5-danger);
 }
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--h5-border);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--h5-text-secondary);
+  transition: all 0.2s;
+}
+.theme-toggle:hover {
+  border-color: var(--h5-primary);
+  color: var(--h5-primary);
+}
+.theme-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-red { background: #db261e; }
+.dot-blue { background: #1a73e8; }
 </style>

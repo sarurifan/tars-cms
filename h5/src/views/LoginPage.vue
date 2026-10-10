@@ -67,6 +67,7 @@ async function handleLogin() {
     if (res.code === 0) {
       localStorage.setItem('h5_token', res.data.token)
       localStorage.setItem('h5_user', JSON.stringify(res.data.user || {}))
+      window.dispatchEvent(new Event('auth-changed'))
       router.push('/')
     } else {
       errorMsg.value = res.msg || '登录失败'

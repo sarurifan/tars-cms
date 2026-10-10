@@ -55,11 +55,20 @@
 
       <el-form-item label="正文" required>
         <div class="editor-wrap">
-          <textarea
+          <Toolbar
+            :editor="editorRef"
+            :defaultConfig="toolbarConfig"
+            mode="default"
+            class="editor-toolbar"
+          />
+          <Editor
             v-model="form.content"
-            class="content-editor"
-            placeholder="支持 HTML 富文本。服务端会用 bluemonday 做 XSS 净化。"
-          ></textarea>
+            :defaultConfig="editorConfig"
+            mode="default"
+            class="editor-body"
+            style="min-height: 300px; height: 400px; overflow-y: hidden;"
+            @onCreated="handleCreated"
+          />
         </div>
       </el-form-item>
     </el-form>
@@ -67,7 +76,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, shallowRef, onBeforeUnmount } from 'vue'
+import '@wangeditor/editor/dist/css/style.css'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAdminCategories, createArticle, updateArticle } from '@/api/admin'
@@ -77,6 +88,26 @@ const route = useRoute()
 const router = useRouter()
 const saving = ref(false)
 const categories = ref<any[]>([])
+
+const editorRef = shallowRef()
+const toolbarConfig = {
+  excludeKeys: ['fullScreen']
+}
+const editorConfig = {
+  placeholder: '请输入正文内容...',
+  MENU_CONF: {}
+}
+
+const handleCreated = (editor: any) => {
+  editorRef.value = editor
+}
+
+onBeforeUnmount(() => {
+  const editor = editorRef.value
+  if (editor == null) return
+  editor.destroy()
+})
+
 
 const isEdit = computed(() => !!route.params.id)
 
@@ -194,6 +225,29 @@ onMounted(() => {
 
 .editor-wrap {
   width: 100%;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.editor-toolbar {
+  border-bottom: 1px solid #e4e7ed;
+  background: #fafafa;
+}
+
+:deep(.editor-body) {
+  min-height: 250px !important;
+  height: 400px !important;
+}
+
+:deep(.w-e-text-container) {
+  min-height: 250px !important;
+  height: 400px !important;
+}
+
+:deep(.w-e-scroll) {
+  min-height: 250px !important;
 }
 
 .content-editor {
