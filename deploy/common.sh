@@ -39,7 +39,7 @@ export CMS_NODE_CTN="${CMS_NODE_CTN:-tars-node}"
 # ── TARS 节点 IP（tarsnode 容器地址）──
 if [ -z "${CMS_NODE_IP:-}" ]; then
   CMS_NODE_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
-    "${CMS_NODE_CTN}" 2>/dev/null | head -1)"
+    "${CMS_NODE_CTN}" 2>/dev/null | head -1 || true)"
   export CMS_NODE_IP="${CMS_NODE_IP:-172.25.0.5}"
 fi
 

@@ -18,6 +18,8 @@ set -euo pipefail
 # 加载部署环境变量（密码等凭据不硬编码在脚本里）
 _ENV_SH="$(cd "$(dirname "$0")" && pwd)/env.sh"
 if [ -f "$_ENV_SH" ]; then . "$_ENV_SH"; fi
+_COMMON_SH="$(cd "$(dirname "$0")" && pwd)/common.sh"
+if [ -f "$_COMMON_SH" ]; then . "$_COMMON_SH"; fi
 
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"   # 绝对路径（供 --help 用）
 cd "$(dirname "$0")"          # deploy/

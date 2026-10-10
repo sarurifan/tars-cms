@@ -68,7 +68,7 @@ services:
       tars:
         ipv4_address: 172.25.0.3
     ports:
-      - "3000:3000"           # Web 管理平台
+      - "13000:3000"          # Web 管理平台
     environment:
       MYSQL_HOST: 172.25.0.2
       MYSQL_PORT: "3306"
