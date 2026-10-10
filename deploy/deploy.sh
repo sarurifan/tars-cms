@@ -83,7 +83,7 @@ init_node_env
 
 # ── 编排步骤 ──
 run() {
-  local n="$1" desc="$2"
+  local n="$1" desc="$2" tol="${3:-0}"
   if was_done "$n" && [[ "$FULL" == 0 ]]; then
     warn "跳过 $n（已成功过，断点续跑）"
     return
@@ -93,13 +93,16 @@ run() {
     warn "跳过 $n（--skip 指定）"
     return
   fi
-  # 注意：不传 "$@"，子脚本不认 deploy.sh 的参数（如 --full/--skip）
-  if ! bash "$ROOT/deploy/${n%%.sh}.sh"; then
+  # 不传 "$@"，子脚本不认 deploy.sh 的参数（如 --full/--skip）
+  if bash "$ROOT/deploy/${n%%.sh}.sh"; then
+    ok "$n 完成"
+    mark_done "$n"
+  elif [[ "$tol" == 1 ]]; then
+    warn "$n 未完全成功（tol=1 容忍），继续后续（可重跑补齐）"
+  else
     err "$n 失败，终止（修复后重跑会自动从 $n 继续）"
     exit 1
   fi
-  ok "$n 完成"
-  mark_done "$n"
 }
 
 # 若 --full，重置断点记录
@@ -137,7 +140,7 @@ done
 ok "前端构建完成 (h5 + admin)"
 
 run n06-deploy-web.sh     "编译打包发布 cms.CmsWeb（静态站+上传）"
-run n07-config-web-gateway.sh "网关路由 / /admin/ /uploads/"
+run n07-config-web-gateway.sh "网关路由 / /admin/ /uploads/" 1
 run n09-deploy-bff.sh     "编译打包发布 cms.CmsBff（BFF）"
 run n08-fix-pid.sh        "安装 cron 修正 not_tars PID"
 run n10-fix-routes.sh     "诊断并修正网关路由（防服务迁移残留旧 IP）"

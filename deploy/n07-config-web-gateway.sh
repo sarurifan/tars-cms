@@ -47,9 +47,8 @@ echo "[2/4] 创建上游 cms_web → $CMSWEB"
 post "$BASE/add_upstream" "{\"f_upstream\":\"cms_web\",\"f_addr\":\"$CMSWEB\",\"f_weight\":\"100\",\"f_fusing_onoff\":\"0\"}" | head -c 150
 echo ""
 
-# 删除旧的 / 路由（指向 BFF），改为 CmsWeb
+# 确保删除指向 BFF 的旧 / 路由（动态查找，非硬编码 f_id）
 echo "[3/4] 更新路由规则"
-# 列出现有路由
 ROUTES=$(get "$BASE/httprouter_list?f_station_id=$STATION_ID")
 echo "  现有路由:"
 echo "$ROUTES" | python3 -c "
@@ -59,26 +58,50 @@ for r in d.get('data',[]):
     print(f\"    id={r['f_id']} path={r['f_path_rule']} → {r['f_proxy_pass']}\")
 "
 
-# 删除 f_id=1 的 / 路由（原指向 BFF）
-echo "  删除旧 / 路由 (f_id=1 → BFF)..."
-post "$BASE/del_httprouter" '{"f_id":"1"}' | head -c 100
-echo ""
+# 删除指向 BFF 的旧 / 路由（原指向 3103），改为 CmsWeb
+OLD_FF_ID=$(echo "$ROUTES" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for r in d.get('data',[]):
+    if r['f_path_rule']=='/' and ':3103' in r.get('f_proxy_pass',''):
+        print(r['f_id']); break
+" 2>/dev/null || echo "")
+if [ -n "$OLD_FF_ID" ]; then
+  echo "  删除旧 / 路由 (f_id=$OLD_FF_ID → BFF)..."
+  post "$BASE/del_httprouter" "{\"f_id\":\"$OLD_FF_ID\"}" | head -c 100 || true
+  echo ""
+  # 刷新路由表（删除后重读）
+  ROUTES=$(get "$BASE/httprouter_list?f_station_id=$STATION_ID")
+else
+  echo "  无需删除（/ 路由不存在或已指向 CmsWeb）"
+fi
 
-# 添加新路由
-echo "  添加 /uploads/ → cms_web..."
-post "$BASE/add_httprouter" "{\"f_station_id\":\"$STATION_ID\",\"f_path_rule\":\"/uploads/\",\"f_proxy_pass\":\"http://$CMSWEB\"}" | head -c 100
-echo ""
+# 确保路由存在（不存在则添加，已存在则跳过）
+ensure_route() {
+  local path="$1" target="$2"
+  local exists=$(echo "$ROUTES" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for r in d.get('data',[]):
+    if r['f_path_rule']=='$path':
+        print('1'); break
+else: print('0')
+" 2>/dev/null || echo "0")
+  if [ "$exists" = "0" ]; then
+    echo "  添加 $path → $target..."
+    post "$BASE/add_httprouter" "{\"f_station_id\":\"$STATION_ID\",\"f_path_rule\":\"$path\",\"f_proxy_pass\":\"http://$target\"}" | head -c 100
+    echo ""
+  else
+    echo "  $path 已存在，跳过"
+  fi
+}
 
-echo "  添加 /admin/ → cms_web..."
-post "$BASE/add_httprouter" "{\"f_station_id\":\"$STATION_ID\",\"f_path_rule\":\"/admin/\",\"f_proxy_pass\":\"http://$CMSWEB\"}" | head -c 100
-echo ""
-
-echo "  添加 / → cms_web (兜底 h5)..."
-post "$BASE/add_httprouter" "{\"f_station_id\":\"$STATION_ID\",\"f_path_rule\":\"/\",\"f_proxy_pass\":\"http://$CMSWEB\"}" | head -c 100
-echo ""
-
-# /api/ 路由保持不变（仍指向 BFF）
-echo "  /api/ 路由保持 → BFF (3103)"
+# 确保 4 条路由
+ensure_route "/uploads/" "$CMSWEB"
+ensure_route "/admin/"   "$CMSWEB"
+ensure_route "/"         "$CMSWEB"
+ensure_route "/api/"     "$BFF"
+echo "  路由规则更新完成"
 
 # 重启网关
 echo ""

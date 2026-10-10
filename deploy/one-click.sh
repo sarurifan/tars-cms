@@ -96,6 +96,24 @@ if [[ "$INFRA_UP" == 0 ]]; then
     cp "$PWD/nginx-gateway.conf" /docker/tars/gateway-nginx/nginx.conf
   fi
   docker compose -f docker-compose.yml up -d
+  # 确保 4 容器都真正 Running（compose depends_on 只保证启动顺序，不保证依赖服务就绪后自动拉起）
+  # 实测：全新机 tars-node / tars-gateway-nginx 有时停在 Created，这里兜底手动启动
+  echo "  确保容器全部启动..."
+  for c in tars-mysql tars-framework tars-node tars-gateway-nginx; do
+    for i in $(seq 1 10); do
+      ST=$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || echo missing)
+      if [[ "$ST" == "running" ]]; then
+        ok "$c running"
+        break
+      elif [[ "$ST" == "missing" ]]; then
+        err "容器 $c 不存在（compose 异常）"; break
+      else
+        echo "  $c 状态=$ST，尝试启动 ($i/10)..."
+        docker start "$c" >/dev/null 2>&1 || true
+        sleep 3
+      fi
+    done
+  done
   # 等待框架初始化（healthcheck 已带 start_period 60s）
   echo "  等待 tars-framework healthy（最多 90s）..."
   for i in $(seq 1 30); do
