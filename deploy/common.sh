@@ -138,8 +138,25 @@ EOF
 ensure_pkg_extracted() {
   local appsvr="$1" svr="$2" binname="${3:-$2}"
   local ctn="${CMS_NODE_CTN:-tars-node}"
-  local bindir="/data/tars/tarsnode-data/${appsvr}/bin"
-  local tgz="/data/tars/tarsnode-data/tmp/download/BatchPatchingLoad/${appsvr}/${appsvr}.tgz"
+
+  # 全新机与旧机的 tarsnode 数据目录路径不同，探测式兼容：
+  #   全新机: /data/tars/tarsnode-data
+  #   旧机 (.95): /usr/local/app/tars/tarsnode/data
+  # 找「实际存着 <app.server>/bin 的基目录」为准（两路径可能互为挂载，任一存在即可）。
+  local base=""
+  for cand in /data/tars/tarsnode-data /usr/local/app/tars/tarsnode/data; do
+    if docker exec "$ctn" sh -c "[ -d '$cand/$appsvr' ]" 2>/dev/null; then
+      base="$cand"; break
+    fi
+  done
+  if [ -z "$base" ]; then
+    for cand in /data/tars/tarsnode-data /usr/local/app/tars/tarsnode/data; do
+      docker exec "$ctn" sh -c "[ -d '$cand' ]" 2>/dev/null && { base="$cand"; break; }
+    done
+  fi
+  [ -n "$base" ] || { err "ensure_pkg_extracted: 找不到 tarsnode 数据目录"; return 1; }
+  local bindir="$base/${appsvr}/bin"
+  local tgz="$base/tmp/download/BatchPatchingLoad/${appsvr}/${appsvr}.tgz"
 
   # 已含目标可执行文件则直接返回
   if docker exec "$ctn" sh -c "[ -f '$bindir/$binname' ] || ls '$bindir' | grep -qE 'bin$|${svr}'" 2>/dev/null \
