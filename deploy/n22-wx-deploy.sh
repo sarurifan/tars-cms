@@ -14,6 +14,10 @@ TOKEN=$(require_ticket)
 API="$CMS_WEB_API"
 MYSQL="docker exec -i $CMS_MYSQL_CTN mysql -uroot -p${CMS_DB_PASS} db_tars"
 
+# 坑3：发布前先确保 tars-node 容器里有 /etc/profile.d/cms-env.sh
+# （WxServer 启动与后续 WxBff 包装脚本都靠它取 CMS_DB_PASS，与 n03/n06/n09 同铁律）
+init_node_env
+
 if [ ! -f "$PKG" ]; then
     err "找不到发布包: $PKG（先跑 n21-wx-package.sh）"
     exit 1

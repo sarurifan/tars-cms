@@ -18,6 +18,10 @@ TOKEN=$(require_ticket)
 API="$CMS_WEB_API"
 MYSQL="docker exec -i $CMS_MYSQL_CTN mysql -uroot -p${CMS_DB_PASS} db_tars"
 
+# 坑3：发布前先确保 tars-node 容器里有 /etc/profile.d/cms-env.sh
+# （下方 tars_start.sh 里 source 它取 CMS_DB_PASS，全新机上缺失则服务起不来）
+init_node_env
+
 echo "=== n23-wx-bff.sh: 打包 + 部署 wx.WxBff (端口 3203) ==="
 rm -rf "$PKG_DIR"
 mkdir -p "$PKG_DIR"
