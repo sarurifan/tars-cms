@@ -94,8 +94,9 @@ else
          WHERE f_station_id='$STATION_ID' AND f_path_rule='$path';" || true
     cnt=$(sql "SELECT COUNT(*) FROM t_http_router WHERE f_station_id='$STATION_ID' AND f_path_rule='$path';")
     if [[ "$cnt" == "0" ]]; then
+      # /api/ 等路径可能已存在于其它 station，唯一键冲突时跳过（|| true）
       sql "INSERT INTO t_http_router (f_station_id, f_server_name, f_path_rule, f_proxy_pass, f_valid, f_update_person)
-           VALUES ('$STATION_ID', '', '$path', '$want', 1, 'n10-fix-routes');"
+           VALUES ('$STATION_ID', '', '$path', '$want', 1, 'n10-fix-routes');" || true
       echo "  + $path → $want（新增）"
     else
       echo "  ~ $path → $want（更新）"

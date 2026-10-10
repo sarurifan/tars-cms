@@ -123,13 +123,25 @@ fi
 run n01-init-db.sh        "初始化数据库（幂等）"
 run n02-package.sh        "编译打包 cms.CmsServer"
 run n03-deploy.sh         "部署 cms.CmsServer 到 tarsnode"
-run n04-verify.sh         "验证业务服务 RPC 连通"
 run n05-config-gateway.sh "注册网关注册 station/upstream/router"
+
+# ── 前端构建（h5 + admin，n06 打包 CmsWeb 前必须产出 dist）──
+step "构建前端 (h5 + admin)"
+for fe in h5 admin; do
+  (
+    cd "$ROOT/$fe" || exit 1
+    npm install
+    npm run build
+  ) || { err "前端构建失败: $fe"; exit 1; }
+done
+ok "前端构建完成 (h5 + admin)"
+
 run n06-deploy-web.sh     "编译打包发布 cms.CmsWeb（静态站+上传）"
 run n07-config-web-gateway.sh "网关路由 / /admin/ /uploads/"
 run n09-deploy-bff.sh     "编译打包发布 cms.CmsBff（BFF）"
 run n08-fix-pid.sh        "安装 cron 修正 not_tars PID"
 run n10-fix-routes.sh     "诊断并修正网关路由（防服务迁移残留旧 IP）"
+run n04-verify.sh         "验证业务服务 RPC 连通"
 
 # ── 最终验证 ──
 step "最终验证"

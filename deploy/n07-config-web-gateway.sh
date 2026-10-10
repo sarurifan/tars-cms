@@ -98,18 +98,18 @@ echo "================================================"
 echo "  端到端验证 (Host: cms)"
 echo "================================================"
 echo -n "  / (h5):       "
-curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code}, %{size_download} bytes\n" "$GW_HTTP/"
+curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code}, %{size_download} bytes\n" "$GW_HTTP/" || true
 echo -n "  /admin/:      "
-curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code}, %{size_download} bytes\n" "$GW_HTTP/admin/"
+curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code}, %{size_download} bytes\n" "$GW_HTTP/admin/" || true
 echo -n "  /article/1:   "
-curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code} (SPA fallback)\n" "$GW_HTTP/article/1"
+curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code} (SPA fallback)\n" "$GW_HTTP/article/1" || true
 echo -n "  /uploads/:    "
-curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code}\n" "$GW_HTTP/uploads/2026/10/1791051755868757484_test.png"
+curl -s --max-time 5 -H "Host: cms" -o /dev/null -w "HTTP %{http_code}\n" "$GW_HTTP/uploads/2026/10/1791051755868757484_test.png" || true
 echo -n "  /api/home:    "
-curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/api/cms/home?tenantId=1" | head -c 80
+curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/api/cms/home?tenantId=1" | head -c 80 || true
 echo ""
 echo -n "  /health:      "
-curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/health" | head -c 80
+curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/health" | head -c 80 || true
 echo ""
 echo ""
 echo "================================================"

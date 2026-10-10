@@ -73,15 +73,15 @@ sleep 10
 echo ""
 echo "=== 端到端验证: 经网关访问 cms ==="
 echo -n "  GET /api/cms/home (Host: cms) -> "
-curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/api/cms/home?tenantId=1" | head -c 150
+curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/api/cms/home?tenantId=1" | head -c 150 || true
 echo ""
 echo -n "  GET /api/cms/articles (Host: cms) -> "
-curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/api/cms/articles?tenantId=1&page=1&size=2" | head -c 150
+curl -s --max-time 5 -H "Host: cms" "$GW_HTTP/api/cms/articles?tenantId=1&page=1&size=2" | head -c 150 || true
 echo ""
 echo -n "  POST /api/auth/login (Host: cms) -> "
 curl -s --max-time 5 -X POST -H "Host: cms" -H "Content-Type: application/json" \
     -d '{"tenantId":1,"username":"admin","password":"admin123"}' \
-    "$GW_HTTP/api/auth/login" | head -c 150
+    "$GW_HTTP/api/auth/login" | head -c 150 || true
 echo ""
 echo ""
 echo "================================================"

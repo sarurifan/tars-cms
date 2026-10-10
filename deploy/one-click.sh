@@ -90,6 +90,11 @@ if [[ "$INFRA_UP" == 0 ]]; then
   if [[ ! -f docker-compose.yml ]]; then
     err "缺少 docker-compose.yml"; exit 1
   fi
+  # 预创建 nginx.conf：挂载是单文件；目录不存在时 Docker 会把挂载点建成目录导致 nginx 起不来
+  mkdir -p /docker/tars/gateway-nginx
+  if [ ! -f /docker/tars/gateway-nginx/nginx.conf ]; then
+    cp "$PWD/nginx-gateway.conf" /docker/tars/gateway-nginx/nginx.conf
+  fi
   docker compose -f docker-compose.yml up -d
   # 等待框架初始化（healthcheck 已带 start_period 60s）
   echo "  等待 tars-framework healthy（最多 90s）..."
