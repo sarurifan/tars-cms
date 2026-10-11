@@ -218,8 +218,8 @@ ensure_toolchain() {
   # go
   if ! command -v go >/dev/null 2>&1; then
     local gopkg=""
-    # 候选：deploy/toolchain/、仓库 toolchain/、/tmp
-    for cand in "$CMS_REPO_DIR/deploy/toolchain"/go*.tar.gz "$CMS_REPO_DIR/toolchain"/go*.tar.gz /tmp/go*.tar.gz; do
+    # 候选：deploy/toolchain/、仓库 toolchain/、离线包 toolchain/、/tmp
+    for cand in "$CMS_REPO_DIR/deploy/toolchain"/go*.tar.gz "$CMS_REPO_DIR/toolchain"/go*.tar.gz /docker/offline-pack/toolchain/go*.tar.gz /tmp/go*.tar.gz; do
       [ -f "$cand" ] && { gopkg="$cand"; break; }
     done
     if [ -z "$gopkg" ]; then
@@ -251,7 +251,7 @@ ensure_toolchain() {
   # node（npm 随 node 走）
   if ! command -v node >/dev/null 2>&1; then
     local nodepkg=""
-    for cand in "$CMS_REPO_DIR/deploy/toolchain"/node*.tar.* "$CMS_REPO_DIR/toolchain"/node*.tar.* /tmp/node*.tar.*; do
+    for cand in "$CMS_REPO_DIR/deploy/toolchain"/node*.tar.* "$CMS_REPO_DIR/toolchain"/node*.tar.* /docker/offline-pack/toolchain/node*.tar.* /tmp/node*.tar.*; do
       [ -f "$cand" ] && { nodepkg="$cand"; break; }
     done
     if [ -z "$nodepkg" ]; then
