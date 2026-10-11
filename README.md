@@ -422,8 +422,8 @@ Each script runs standalone and is idempotent; see `deploy/README.md` for detail
 | `auth` service (Go / OIDC+JWT) | ✅ Verified running |
 | `gateway` routing | ✅ Verified running |
 | `Benchmark` | ✅ Verified (measured QPS and latency) |
-| `cms` content service | 🚧 In progress |
-| Frontend site | 🚧 In progress |
+| `cms` content service | ✅ Verified running (one-click, 17/17) |
+| Frontend site | ✅ Verified (h5 + admin, HTTP 200) |
 
 > The project is under active development. Stars and contributions are welcome.
 
