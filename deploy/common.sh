@@ -1,3 +1,4 @@
+
 # ================================================================
 # common.sh — tars-cms 部署脚本公共库（被各 n0X 脚本 source）
 #
@@ -188,3 +189,235 @@ ensure_pkg_extracted() {
     return 1
   fi
 }
+
+# ── 坑4：工具链自动安装（go/node/npm/git）──
+# 全新机没有 go/node 时，deploy.sh 前置检查会直接报"缺少依赖"退出。
+# 本函数自动从 toolchain/ 目录（离线包自带）或本地缓存找安装包装好，
+# 装到 /usr/local，写 /etc/profile.d，并 export 到当前会话 PATH。
+# 返回 0 = 依赖就绪；非 0 = 仍缺（调用方应报错）。
+
+# 解包到目标目录（非 root 自动 sudo；/usr/local 默认 root 属主）
+_install_tarball() {
+  local pkg="$1" dest="$2"
+  if [ "$(id -u)" -eq 0 ]; then
+    tar -C "$dest" -xzf "$pkg"
+  else
+    sudo tar -C "$dest" -xzf "$pkg"
+  fi
+}
+ensure_toolchain() {
+  local missing=()
+  for c in docker git; do
+    command -v "$c" >/dev/null 2>&1 || missing+=("$c")
+  done
+  if [ ${#missing[@]} -gt 0 ]; then
+    err "ensure_toolchain: 系统依赖缺失: ${missing[*]}（请先安装）" >&2
+    return 1
+  fi
+
+  # go
+  if ! command -v go >/dev/null 2>&1; then
+    local gopkg=""
+    # 候选：deploy/toolchain/、仓库 toolchain/、/tmp
+    for cand in "$CMS_REPO_DIR/deploy/toolchain"/go*.tar.gz "$CMS_REPO_DIR/toolchain"/go*.tar.gz /tmp/go*.tar.gz; do
+      [ -f "$cand" ] && { gopkg="$cand"; break; }
+    done
+    if [ -z "$gopkg" ]; then
+      err "ensure_toolchain: 缺 go 且找不到 go*.tar.gz（放 deploy/toolchain/ 或离线包 toolchain/）" >&2
+      return 1
+    fi
+    warn "ensure_toolchain: 安装 go from $gopkg ..."
+    # 干净安装：先清旧 /usr/local/go（tar 覆盖非 root 属主会大量冲突/半覆盖）
+    if [ -d /usr/local/go ]; then
+      rm -rf /usr/local/go 2>/dev/null || sudo rm -rf /usr/local/go 2>/dev/null || true
+    fi
+    _install_tarball "$gopkg" /usr/local || { err "ensure_toolchain: go 解包失败" >&2; return 1; }
+    # 写 profile + PATH（/etc 无权限则降级 ~/.profile，当前会话 PATH 必须 export）
+    if [ -d /usr/local/go/bin ]; then
+      local prof="/etc/profile.d/tars-toolchain.sh"
+      if [ -w /etc/profile.d ]; then
+        echo 'export PATH=/usr/local/go/bin:$PATH' > "$prof" 2>/dev/null || true
+      else
+        echo 'export PATH=/usr/local/go/bin:$PATH' | sudo tee "$prof" >/dev/null 2>&1 || true
+      fi
+      echo 'export PATH=/usr/local/go/bin:$PATH' >> "$HOME/.profile" 2>/dev/null || true
+      export PATH=/usr/local/go/bin:$PATH
+    else
+      err "ensure_toolchain: go 解包后 /usr/local/go/bin 不存在" >&2
+      return 1
+    fi
+  fi
+
+  # node（npm 随 node 走）
+  if ! command -v node >/dev/null 2>&1; then
+    local nodepkg=""
+    for cand in "$CMS_REPO_DIR/deploy/toolchain"/node*.tar.* "$CMS_REPO_DIR/toolchain"/node*.tar.* /tmp/node*.tar.*; do
+      [ -f "$cand" ] && { nodepkg="$cand"; break; }
+    done
+    if [ -z "$nodepkg" ]; then
+      err "ensure_toolchain: 缺 node 且找不到 node*.tar.*（放 deploy/toolchain/ 或离线包 toolchain/）" >&2
+      return 1
+    fi
+    warn "ensure_toolchain: 安装 node from $nodepkg ..."
+    local ndir; ndir=$(tar -tzf "$nodepkg" 2>/dev/null | head -1 | cut -d/ -f1)
+    # 干净安装：先清旧 /usr/local/node*（覆盖冲突同 go）
+    if [ -d /usr/local/node ] || [ -d "/usr/local/$ndir" ]; then
+      rm -rf /usr/local/node "/usr/local/$ndir" 2>/dev/null \
+        || sudo rm -rf /usr/local/node "/usr/local/$ndir" 2>/dev/null || true
+    fi
+    _install_tarball "$nodepkg" /usr/local || { err "ensure_toolchain: node 解包失败" >&2; return 1; }
+    # 兼容带版本目录 /usr/local/node-v20.19.0-linux-x64 → 软链 /usr/local/node
+    if [ -n "$ndir" ] && [ -d "/usr/local/$ndir" ]; then
+      ln -sf "/usr/local/$ndir" /usr/local/node 2>/dev/null \
+        || sudo ln -sf "/usr/local/$ndir" /usr/local/node 2>/dev/null || true
+    fi
+    if [ -x /usr/local/node/bin/node ]; then
+      local prof2="/etc/profile.d/tars-toolchain.sh"
+      if [ -w /etc/profile.d ]; then
+        echo 'export PATH=/usr/local/node/bin:$PATH' >> "$prof2" 2>/dev/null || true
+      else
+        echo 'export PATH=/usr/local/node/bin:$PATH' | sudo tee -a "$prof2" >/dev/null 2>&1 || true
+      fi
+      echo 'export PATH=/usr/local/node/bin:$PATH' >> "$HOME/.profile" 2>/dev/null || true
+      export PATH=/usr/local/node/bin:$PATH
+    else
+      err "ensure_toolchain: node 解包后 /usr/local/node/bin/node 不存在" >&2
+      return 1
+    fi
+  fi
+
+  # npm 随 node 走，最终校验
+  for c in go node npm; do
+    command -v "$c" >/dev/null 2>&1 || { err "ensure_toolchain: 仍缺 $c" >&2; return 1; }
+  done
+
+  # ── GOPROXY：国内机 proxy.golang.org 被墙/证书劫持，n02 编译必炸 ──
+  # 判别：默认 GOPROXY 且能访问 goproxy.cn 时，切到 goproxy.cn（并持久化 ~/.bashrc）。
+  if command -v go >/dev/null 2>&1; then
+    local cur_gp="${GOPROXY:-}"
+    if [[ "$cur_gp" != *goproxy.cn* ]] && curl -sI --max-time 4 https://goproxy.cn >/dev/null 2>&1; then
+      warn "ensure_toolchain: 检测到国内网络，GOPROXY → https://goproxy.cn,direct"
+      export GOPROXY="https://goproxy.cn,direct"
+      grep -q "GOPROXY" "$HOME/.bashrc" 2>/dev/null \
+        || echo 'export GOPROXY=https://goproxy.cn,direct' >> "$HOME/.bashrc" 2>/dev/null || true
+    fi
+  fi
+
+  ok "工具链就绪 ($(go version 2>/dev/null | awk '{print $3}') / node $(node --version 2>/dev/null))"
+  return 0
+}
+
+# ── 坑5：Docker 权限自动处理 ──
+# 非 root 用户（如 sa）不在 docker 组时，docker inspect 直接 Permission denied，
+# 前置检查误报"容器不存在"。本函数把当前用户加入 docker 组（需 sudo），
+# 并提示重开 shell；当前会话若还不行则尝试 sudo docker 前缀。
+ensure_docker_access() {
+  if docker info >/dev/null 2>&1; then return 0; fi
+  if [ "$(id -u)" -ne 0 ]; then
+    # 试加 docker 组（newgrp 无法在脚本内生效，加完提示；当前会话用 sudo 兜底）
+    if command -v sudo >/dev/null 2>&1 && ! groups 2>/dev/null | grep -qw docker; then
+      warn "ensure_docker_access: 当前用户不在 docker 组，尝试 sudo usermod -aG docker ..."
+      sudo usermod -aG docker "$USER" 2>/dev/null && ok "已加入 docker 组（重新登录后生效）"
+    fi
+    # 当前会话兜底：若 sudo docker 可用则定义 docker 别名
+    if ! docker info >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
+      warn "ensure_docker_access: 当前会话用 sudo docker 兜底"
+      docker() { sudo docker "$@"; }
+      export -f docker 2>/dev/null || true
+    fi
+  fi
+  docker info >/dev/null 2>&1 || { err "ensure_docker_access: docker 仍不可用"; return 1; }
+  return 0
+}
+
+# ── 坑6：目录可写自动处理 ──
+# /docker/tars 默认 root 属主；非 root 部署时 mkdir/build 权限不足。
+# 本函数确保 $CMS_BASE_DIR 存在且当前用户可写（sudo chown）。
+ensure_dir_writable() {
+  local d="${1:-$CMS_BASE_DIR}"
+  if [ -d "$d" ] && [ -w "$d" ]; then return 0; fi
+  if [ ! -d "$d" ]; then
+    if ! mkdir -p "$d" 2>/dev/null; then
+      sudo mkdir -p "$d" 2>/dev/null || { err "ensure_dir_writable: 无法创建 $d"; return 1; }
+    fi
+  fi
+  if [ ! -w "$d" ] && [ "$(id -u)" -ne 0 ]; then
+    warn "ensure_dir_writable: $d 不可写，sudo chown 当前用户 ..."
+    sudo chown -R "$(id -u):$(id -g)" "$d" 2>/dev/null || { err "ensure_dir_writable: chown $d 失败"; return 1; }
+  fi
+  [ -w "$d" ] || { err "ensure_dir_writable: $d 仍不可写"; return 1; }
+  ok "目录就绪: $d"
+  return 0
+}
+
+# ── 坑7：MySQL 数据自愈（权限错 + 孤儿表）──
+# 两类问题都会让 GatewayWeb 启动崩溃：
+#   A. 数据卷属主漂移（如宿主 chown 后 1000:1000，而 mysqld 以 999:999 跑）
+#      → SHOW TABLES FROM db_base 报 1018 Permission denied，建表报 1050。
+#      修法：chown 数据目录为容器内 mysql uid（轻量，不删数据）。
+#   B. 孤儿表（GatewayWeb 建表中断留 .ibd 无 .frm）
+#      → CREATE TABLE IF NOT EXISTS 报 1050/1813。
+#      修法：重建数据卷（bind mount，数据可重建）。
+# 优先走 A（不毁数据），A 修不好再走 B。
+ensure_mysql_data() {
+  local ctn="${CMS_MYSQL_CTN:-tars-mysql}"
+  docker inspect "$ctn" >/dev/null 2>&1 || { warn "ensure_mysql_data: $ctn 不存在，跳过"; return 0; }
+  local data_dir
+  data_dir=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/lib/mysql"}}{{.Source}}{{end}}{{end}}' "$ctn" 2>/dev/null | head -1)
+  [ -n "$data_dir" ] || { warn "ensure_mysql_data: 未找到 $ctn 数据目录（非 bind mount？）"; return 0; }
+
+  # ── 探测：建临时表看报什么错（无 db_base 则跳过，全新库正常）──
+  if ! docker exec "$ctn" mysql -uroot -p"${CMS_DB_PASS}" -e "USE db_base" >/dev/null 2>&1; then
+    return 0  # db_base 不存在 = 全新库，正常
+  fi
+  local probe
+  probe=$(docker exec "$ctn" mysql -uroot -p"${CMS_DB_PASS}" -e \
+    "CREATE TABLE IF NOT EXISTS db_base.__probe (f_id INT)" 2>&1 || true)
+  docker exec "$ctn" mysql -uroot -p"${CMS_DB_PASS}" -e \
+    "DROP TABLE IF EXISTS db_base.__probe" >/dev/null 2>&1 || true
+
+  # ── A. 权限错（1018 Permission denied / errno 13）→ 修属主 ──
+  if echo "$probe" | grep -qE "1018|errno: 13|Permission denied"; then
+    warn "ensure_mysql_data: db_base 权限错（1018/errno 13），修数据目录属主..."
+    # mysqld 容器内以 mysql 用户跑（uid 999）；把 bind mount 属主改成它
+    local muid
+    muid=$(docker exec "$ctn" sh -c 'id -u mysql 2>/dev/null' 2>/dev/null | tr -d '\r')
+    [ -n "$muid" ] || muid=999
+    docker stop "$ctn" >/dev/null 2>&1 || true
+    sleep 2
+    if [ -d "$data_dir" ]; then
+      sudo chown -R "$muid:$muid" "$data_dir" 2>/dev/null || chown -R "$muid:$muid" "$data_dir" 2>/dev/null || true
+    fi
+    docker start "$ctn" >/dev/null 2>&1
+    local i
+    for i in $(seq 1 30); do
+      docker exec "$ctn" mysql -uroot -p"${CMS_DB_PASS}" -e "SELECT 1" >/dev/null 2>&1 && break
+      sleep 2
+    done
+    ok "ensure_mysql_data: 数据目录属主已修为 $muid:$muid"
+    return 0
+  fi
+
+  # ── B. 孤儿表（1050/1813）→ 重建数据卷 ──
+  if echo "$probe" | grep -qE "1050|1813"; then
+    warn "ensure_mysql_data: db_base 检测到孤儿表（1050/1813），重建 MySQL 数据卷..."
+    warn "ensure_mysql_data: 停 $ctn → 清 $data_dir → 重启（bind mount 数据可重建）"
+    docker stop "$ctn" >/dev/null 2>&1 || true
+    sleep 2
+    if [ -d "$data_dir" ]; then
+      sudo rm -rf "$data_dir" 2>/dev/null || rm -rf "$data_dir" || true
+    fi
+    docker start "$ctn" >/dev/null 2>&1
+    local j
+    for j in $(seq 1 30); do
+      docker exec "$ctn" mysql -uroot -p"${CMS_DB_PASS}" -e "SELECT 1" >/dev/null 2>&1 && break
+      sleep 2
+    done
+    docker exec "$ctn" mysql -uroot -p"${CMS_DB_PASS}" -e "CREATE DATABASE IF NOT EXISTS db_base" >/dev/null 2>&1 || true
+    ok "ensure_mysql_data: 数据卷已重建，db_base 就绪"
+    return 0
+  fi
+
+  return 0  # 正常，无问题
+}
+

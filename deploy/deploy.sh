@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 # ================================================================
 # deploy.sh — tars-cms 一键部署脚本
@@ -68,14 +69,17 @@ was_done()  { grep -qx "$1" "$STATE_FILE" 2>/dev/null; }
 
 # ── 前置检查 ──
 step "前置检查"
-for c in docker go node npm git; do
-  command -v "$c" >/dev/null 2>&1 || { err "缺少依赖: $c"; exit 1; }
-done
-ok "依赖齐全 (docker/go/node/npm/git)"
+# 环境自动处理：docker 权限 → 工具链（go/node/npm）→ 目录可写
+ensure_docker_access || { err "docker 不可用（检查 docker 服务或当前用户权限）"; exit 1; }
+ensure_toolchain   || { err "工具链不完整（go/node/npm），请按提示补包后重跑"; exit 1; }
+ensure_dir_writable "${CMS_BASE_DIR}" || exit 1
+ok "环境就绪 (docker/go/node/npm/git)"
 docker inspect tars-mysql >/dev/null 2>&1 || { err "tars-mysql 容器不存在，请先部署 TARS 平台"; exit 1; }
 docker inspect tars-framework >/dev/null 2>&1 || { err "tars-framework 容器不存在"; exit 1; }
 docker inspect tars-node >/dev/null 2>&1 || { err "tars-node 容器不存在"; exit 1; }
 ok "TARS 平台容器齐全 (tars-mysql/tars-framework/tars-node)"
+# 数据自愈：db_base 孤儿表（1050/1813）自动重建数据卷
+ensure_mysql_data || warn "ensure_mysql_data 未执行（非致命，后续 n01/n15 会再验证）"
 
 # 坑3：全局初始化 tars-node 容器内的 cms 运行环境（n03/n06/n09 各自也会调，这里兜底）
 step "init_node_env — 写入 tars-node:/etc/profile.d/cms-env.sh"

@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 # ================================================================
 # one-click.sh — tars-cms 一条命令一键部署（干净机 / 已有4容器 通用）
@@ -52,10 +53,11 @@ _COMMON_SH="$PWD/common.sh"
 
 # ── 前置检查 ──
 step "前置检查"
-for c in docker go node npm git python3; do
-  command -v "$c" >/dev/null 2>&1 || { err "缺少依赖: $c"; exit 1; }
-done
-ok "依赖齐全 (docker/go/node/npm/git/python3)"
+# 环境自动处理：docker 权限 → 工具链（go/node/npm/python3）
+ensure_docker_access || { err "docker 不可用（检查 docker 服务或当前用户权限）"; exit 1; }
+ensure_toolchain     || { err "工具链不完整（go/node/npm），请按提示补包后重跑"; exit 1; }
+command -v python3 >/dev/null 2>&1 || warn "缺 python3（部分验证步骤会跳过）"
+ok "环境就绪 (docker/go/node/npm/git/python3)"
 
 # 判定基础设施状态
 MYSQL_UP=$(docker inspect tars-mysql   >/dev/null 2>&1 && echo 1 || echo 0)
@@ -133,6 +135,9 @@ else
   step "基础设施已就绪 (tars-mysql/framework/node)"
   ok "4 容器环境已存在，跳过 compose"
 fi
+
+# 数据自愈：db_base 孤儿表（1050/1813）自动重建数据卷（compose 拉起后或已有环境都检查）
+ensure_mysql_data || warn "ensure_mysql_data 未执行（非致命，后续 n01/n15 会再验证）"
 
 # ── ticket 获取 ──
 if [[ "$SKIP_TOKEN" == 0 ]]; then
