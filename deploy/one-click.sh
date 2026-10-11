@@ -87,6 +87,13 @@ fi
 if [[ "$INFRA_UP" == 0 ]]; then
   step "基础设施不存在 → 用 docker compose 拉起 (全新机)"
   warn "未检测到 tars-mysql/framework/node 容器，走全新机路径"
+  # 坑：环境被清理后 STATE_FILE (/tmp/tars-cms-deploy.state) 可能残留，
+  # 导致后续 deploy.sh "断点续跑"跳过所有步骤 → 业务未部署 → 404 假成功。
+  # 全新机路径 = 环境已清，强制重置部署状态。
+  if [[ -f /tmp/tars-cms-deploy.state ]]; then
+    warn "检测到残留部署状态，强制重置（避免全新机假续跑）"
+    rm -f /tmp/tars-cms-deploy.state
+  fi
   if [[ ! -f docker-compose.yml ]]; then
     err "缺少 docker-compose.yml"; exit 1
   fi
