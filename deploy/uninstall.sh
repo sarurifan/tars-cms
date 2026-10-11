@@ -19,13 +19,14 @@
 # ================================================================
 set -uo pipefail
 
-FORCE=0; DRY=0; KEEP_TC=0
+FORCE=0; DRY=0; KEEP_TC=0; WITH_IMG=0
 for a in "$@"; do
   case "$a" in
     --force) FORCE=1 ;;
     --dry-run) DRY=1 ;;
     --keep-toolchain) KEEP_TC=1 ;;
-    *) echo "未知参数: $a (支持: --force / --dry-run / --keep-toolchain)"; exit 1 ;;
+    --with-images) WITH_IMG=1 ;;
+    *) echo "未知参数: $a (支持: --force / --dry-run / --keep-toolchain / --with-images)"; exit 1 ;;
   esac
 done
 
@@ -130,15 +131,19 @@ for n in $CMS_NETWORKS; do
   fi
 done
 
-# ── 7. 删镜像 ──
+# ── 7. 删镜像（默认保留，--with-images 才删：重装验证要复用）──
 echo ""
-echo "=== [7/8] 删除 tarscloud 镜像 ==="
-if [ $DRY -eq 1 ]; then
-  docker images --format '{{.Repository}}:{{.Tag}}' | grep -E "$CMS_IMAGES_PAT" | sed 's/^/    [dry] docker rmi /'
+if [ $WITH_IMG -eq 0 ]; then
+  echo "=== [7/8] 保留 tarscloud 镜像（--with-images 可删）==="
 else
-  docker images --format '{{.Repository}}:{{.Tag}}' | grep -E "$CMS_IMAGES_PAT" \
-    | xargs -r docker rmi -f >/dev/null 2>&1 \
-    && ok "镜像已清理" || warn "镜像清理不完整(可能有容器引用)"
+  echo "=== [7/8] 删除 tarscloud 镜像 ==="
+  if [ $DRY -eq 1 ]; then
+    docker images --format '{{.Repository}}:{{.Tag}}' | grep -E "$CMS_IMAGES_PAT" | sed 's/^/    [dry] docker rmi /'
+  else
+    docker images --format '{{.Repository}}:{{.Tag}}' | grep -E "$CMS_IMAGES_PAT" \
+      | xargs -r docker rmi -f >/dev/null 2>&1 \
+      && ok "镜像已清理" || warn "镜像清理不完整(可能有容器引用)"
+  fi
 fi
 
 # ── 8. 状态文件 / profile / 工具链 / bashrc / docker 组 ──
