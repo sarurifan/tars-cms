@@ -124,6 +124,40 @@ tars-cms/
 
 ---
 
+## 离线一键部署包（推荐）
+
+不想从零搭环境？下载打包好的**离线安装包**，内网断网机也能装。包内已包含全部 Docker 镜像、Go/Node 工具链、业务发布包、GatewayServer 二进制与全套 `deploy/` 脚本（含本仓库最新源码）。
+
+- **下载**：夸克网盘 [tars-cms 离线包](https://pan.quark.cn/s/c5cc9e138834)（提取码：`USES`，永久有效）
+- **内容**：`offline-pack.tar.gz.aa`（1.5G）+ `offline-pack.tar.gz.ab`（1.2G），约 2.7G
+- **使用**：下载两分卷到同一目录，合并解压后跑 `bash offline-pack/deploy/one-click.sh`：
+
+```bash
+# 解压（合并分卷 -> tar.gz -> 解出 offline-pack/）
+cat offline-pack.tar.gz.aa offline-pack.tar.gz.ab | tar -xzf -
+
+cd offline-pack
+cp deploy/env.sh.example deploy/env.sh
+vim deploy/env.sh            # 填 CMS_DB_PASS（MySQL root 密码）
+bash deploy/one-click.sh     # 一键部署：基础设施 + 业务服务 + 网关全链路
+```
+
+包内结构：
+
+```
+offline-pack/
+├── deploy/            部署脚本（one-click + n01~n26 + 全套 ensure_*）
+├── images/            5 个 docker save 镜像（mysql/nginx/tarscloud×3，~6.8G）
+├── toolchain/         go1.22.12 + node20.19.0 安装包
+├── packages/          业务发布包 CmsServer/CmsWeb/CmsBff.tgz
+├── gateway-binary/    GatewayServer 预编译二进制（26M，免重编译）
+└── {源码目录}/         仓库源码（cms/h5/admin/web/gateway/...）
+```
+
+> 镜像通过 `deploy/n14-compose-deploy.sh` 自动 `docker load`，无需联网 pull。
+
+---
+
 ## 快速开始
 
 ### 1. 部署 TARS 框架
